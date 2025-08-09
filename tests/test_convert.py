@@ -8,14 +8,14 @@ import sys
 import os
 from pathlib import Path
 from unittest.mock import patch
+import asyncio
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.claude_proxy.providers.openai import OpenAIProvider
-from src.claude_proxy.models.claude import ClaudeMessagesRequest, ClaudeMessage
-from src.claude_proxy.config import get_settings
+from src.claude_proxy.models.claude import ClaudeMessagesRequest
 from tests.conversion_runner import ConversionCaseLoader, ConversionTestValidator
 
 
@@ -60,7 +60,6 @@ class TestConvertCases:
             # 清除缓存的设置并重新加载配置
             import src.claude_proxy.config as config_module
             config_module._settings = None
-            settings = config_module.get_settings()
             
             # 创建OpenAI provider实例
             provider = OpenAIProvider(
@@ -98,7 +97,8 @@ class TestConvertCases:
         for case in ConversionCaseLoader().load_all_cases()
         if (case.test_config.get('test_response_conversion', True) 
             and case.openai_response 
-            and case.expected_claude_response)
+            and case.expected_claude_response
+            and not isinstance(case.openai_response, list))  # Exclude streaming (list format)
     ])
     def test_response_conversion(self, case):
         """测试OpenAI响应到Claude响应的转换"""
@@ -111,7 +111,6 @@ class TestConvertCases:
             # 清除缓存的设置并重新加载配置
             import src.claude_proxy.config as config_module
             config_module._settings = None
-            settings = config_module.get_settings()
             
             # 创建OpenAI provider实例
             provider = OpenAIProvider(
@@ -194,16 +193,152 @@ class TestConvertCases:
     @pytest.mark.parametrize("case", [
         pytest.param(case, id=f"{case.category}::{case.file_name}")
         for case in ConversionCaseLoader().load_all_cases()
-        if (case.test_config.get('test_streaming_conversion', False)
-            and case.openai_streaming_response
-            and case.expected_claude_streaming_response)
+        if (case.openai_response 
+            and case.expected_claude_response
+            and isinstance(case.openai_response, list)  # Streaming is indicated by list format
+            and isinstance(case.expected_claude_response, list))
     ])
-    def test_streaming_conversion(self, case):
+    @pytest.mark.asyncio
+    async def test_streaming_conversion(self, case):
         """测试流式响应转换"""
-        # 这是一个更复杂的测试，需要模拟SSE流
-        # 暂时标记为TODO，需要实现流式转换逻辑后再完成
-        pytest.skip("Streaming conversion test not implemented yet")
+        # 设置测试环境变量，可被case.env覆盖
+        test_env = self.TEST_ENV_VARS.copy()
+        if hasattr(case, 'env') and case.env:
+            test_env.update(case.env)
+        
+        with patch.dict(os.environ, test_env, clear=False):
+            # 清除缓存的设置并重新加载配置
+            import src.claude_proxy.config as config_module
+            config_module._settings = None
+            
+            # 创建模拟的流式客户端
+            mock_client = self._create_mock_streaming_client(case.openai_response)
+            
+            # 创建OpenAI provider实例，使用模拟客户端
+            provider = OpenAIProvider(
+                api_key="test-key",
+                base_url="https://api.openai.com/v1", 
+                timeout=30,
+                client=mock_client
+            )
+            
+            # 创建Claude请求对象
+            from src.claude_proxy.models.claude import ClaudeMessagesRequest
+            if case.claude_request:
+                claude_request_obj = ClaudeMessagesRequest(**case.claude_request)
+            else:
+                # 为流式测试提供最小默认请求
+                claude_request_obj = ClaudeMessagesRequest(
+                    model="claude-3-haiku-20240307",
+                    max_tokens=100,
+                    messages=[{"role": "user", "content": "test"}]
+                )
+            
+            # 调用真实的stream_complete方法
+            actual_events = []
+            async for sse_event in provider.stream_complete(claude_request_obj, "test-request-id"):
+                # 解析SSE事件
+                event = self._parse_sse_event(sse_event)
+                if event:
+                    actual_events.append(event)
+            
+            # 验证结果
+            self._validate_streaming_events(
+                actual_events,
+                case.expected_claude_response, 
+                case.file_name,
+                case.file_path
+            )
     
+    def _create_mock_streaming_client(self, openai_chunks):
+        """创建模拟流式HTTP客户端"""
+        import json
+        from unittest.mock import AsyncMock, MagicMock
+        
+        # 创建SSE格式的数据
+        sse_lines = []
+        for chunk in openai_chunks:
+            sse_lines.append(f"data: {json.dumps(chunk)}")
+        sse_lines.append("data: [DONE]")
+        
+        # 创建mock响应
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = MagicMock()
+        
+        # 创建async iterator for aiter_lines
+        async def mock_aiter_lines():
+            for line in sse_lines:
+                yield line
+        
+        mock_response.aiter_lines = mock_aiter_lines
+        
+        # 创建async context manager
+        class MockStreamContext:
+            def __init__(self, response):
+                self.response = response
+            
+            async def __aenter__(self):
+                return self.response
+            
+            async def __aexit__(self, _exc_type, _exc_val, _exc_tb):
+                return None
+        
+        # 创建mock client
+        mock_client = AsyncMock()
+        
+        def mock_stream(*_args, **_kwargs):
+            return MockStreamContext(mock_response)
+        
+        mock_client.stream = mock_stream
+        
+        return mock_client
+    
+    def _parse_sse_event(self, sse_event_str):
+        """解析provider返回的SSE事件字符串为JSON对象"""
+        import json
+        
+        # SSE格式: "event: event_name\ndata: {...}\n\n"
+        if not sse_event_str.strip():
+            return None
+        
+        lines = sse_event_str.strip().split('\n')
+        data_line = None
+        
+        for line in lines:
+            if line.startswith('data: '):
+                data_line = line[6:]  # 移除 "data: " 前缀
+                break
+        
+        if data_line:
+            try:
+                return json.loads(data_line)
+            except json.JSONDecodeError:
+                return None
+        
+        return None
+    
+    def _validate_streaming_events(self, actual_events, expected_events, case_name, case_file):
+        """验证流式事件序列"""
+        if len(actual_events) != len(expected_events):
+            pytest.fail(f"Streaming event count mismatch in '{case_name}': expected {len(expected_events)}, got {len(actual_events)}\nCase file: {case_file}")
+        
+        for i, (actual, expected) in enumerate(zip(actual_events, expected_events)):
+            if actual.get("type") != expected.get("type"):
+                pytest.fail(f"Event {i} type mismatch in '{case_name}': expected {expected.get('type')}, got {actual.get('type')}\nCase file: {case_file}")
+            
+            # 验证关键字段（根据事件类型）
+            if actual["type"] == "content_block_delta":
+                actual_text = actual.get("delta", {}).get("text", "")
+                expected_text = expected.get("delta", {}).get("text", "")
+                if actual_text != expected_text:
+                    pytest.fail(f"Event {i} delta text mismatch in '{case_name}': expected '{expected_text}', got '{actual_text}'\nCase file: {case_file}")
+            
+            elif actual["type"] == "message_delta":
+                actual_stop_reason = actual.get("delta", {}).get("stop_reason")
+                expected_stop_reason = expected.get("delta", {}).get("stop_reason") 
+                if actual_stop_reason != expected_stop_reason:
+                    pytest.fail(f"Event {i} stop_reason mismatch in '{case_name}': expected '{expected_stop_reason}', got '{actual_stop_reason}'\nCase file: {case_file}")
     
     @classmethod
     def teardown_class(cls):

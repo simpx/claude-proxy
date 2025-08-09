@@ -15,13 +15,14 @@ class BaseProvider(ABC):
         self, 
         api_key: str, 
         base_url: str, 
-        timeout: int = 90
+        timeout: int = 90,
+        client: Optional[httpx.AsyncClient] = None
     ):
         """Initialize provider with API credentials."""
         self.api_key = api_key
         self.base_url = base_url
         self.timeout = timeout
-        self.client = httpx.AsyncClient(
+        self.client = client or httpx.AsyncClient(
             timeout=httpx.Timeout(timeout),
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
         )

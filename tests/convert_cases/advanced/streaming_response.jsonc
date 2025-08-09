@@ -1,35 +1,7 @@
 {
   "description": "Convert OpenAI streaming response to Claude streaming format",
   
-  "test_config": {
-    "test_response_conversion": false  // Skip until streaming is implemented
-  },
-  
-  "claude_request": {
-    "model": "claude-3-haiku-20240307",
-    "max_tokens": 200,
-    "stream": true,
-    "messages": [
-      {
-        "role": "user",
-        "content": "Write a short poem about coding."
-      }
-    ]
-  },
-  
-  "expected_openai_request": {
-    "model": "gpt-4o-mini", // haiku -> small_model
-    "messages": [
-      {
-        "role": "user",
-        "content": "Write a short poem about coding."
-      }
-    ],
-    "max_tokens": 200,
-    "stream": true
-  },
-  
-  // OpenAI streaming response as array of chunks
+  // OpenAI streaming response as array of chunks (list indicates streaming)
   "openai_response": [
     {
       "id": "chatcmpl-poem789",
@@ -99,7 +71,7 @@
     }
   ],
   
-  // Claude streaming response format
+  // Claude streaming response format (list indicates streaming)
   "expected_claude_response": [
     {
       "type": "message_start",

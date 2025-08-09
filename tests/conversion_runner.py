@@ -6,7 +6,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Union
 from dataclasses import dataclass
 import json
 
@@ -20,10 +20,8 @@ class ConversionTestCase:
     tags: List[str]
     claude_request: Optional[Dict[str, Any]]
     expected_openai_request: Optional[Dict[str, Any]]
-    openai_response: Optional[Dict[str, Any]] = None
-    expected_claude_response: Optional[Dict[str, Any]] = None
-    openai_streaming_response: Optional[List[Dict[str, Any]]] = None
-    expected_claude_streaming_response: Optional[List[Dict[str, Any]]] = None
+    openai_response: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None
+    expected_claude_response: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None
     test_config: Optional[Dict[str, bool]] = None
     env: Optional[Dict[str, str]] = None
     file_path: str = ""
@@ -95,8 +93,10 @@ class ConversionCaseLoader:
                     expected_openai_request['model'] = 'gpt-4o-mini'
                     should_skip_model_mapping = True
             
-            # 处理响应转换的model字段
-            if openai_response and expected_claude_response:
+            # 处理响应转换的model字段（跳过streaming响应的list格式）
+            if (openai_response and expected_claude_response 
+                and not isinstance(openai_response, list) 
+                and not isinstance(expected_claude_response, list)):
                 if 'model' not in openai_response and 'model' not in expected_claude_response:
                     # 两个都没有model，添加默认值
                     openai_response = openai_response.copy()
@@ -119,8 +119,6 @@ class ConversionCaseLoader:
                 expected_openai_request=expected_openai_request,
                 openai_response=openai_response,
                 expected_claude_response=expected_claude_response,
-                openai_streaming_response=data.get('openai_streaming_response'),
-                expected_claude_streaming_response=data.get('expected_claude_streaming_response'),
                 test_config=test_config,
                 env=data.get('env', {}),
                 file_path=str(file_path)
