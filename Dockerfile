@@ -2,22 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies and uv
 RUN apt-get update && apt-get install -y \
     curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Poetry
-RUN pip install poetry
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install uv
 
 # Copy dependency files
-COPY pyproject.toml poetry.lock* ./
-
-# Configure Poetry
-RUN poetry config virtualenvs.create false
+COPY pyproject.toml ./
 
 # Install dependencies
-RUN poetry install --no-dev
+RUN uv pip install --system -e .
 
 # Copy application code
 COPY . .

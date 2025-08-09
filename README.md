@@ -22,11 +22,14 @@ A production-ready Claude API proxy server that enables seamless integration wit
 git clone <repository-url>
 cd claude-proxy
 
-# Install dependencies with Poetry
-poetry install
+# Install dependencies with uv (recommended)
+uv sync
 
-# Or with pip
-pip install -r requirements.txt
+# Or install directly
+uv pip install -e .
+
+# Or with pip (traditional method)
+pip install -e .
 ```
 
 ### 2. Configuration
@@ -56,10 +59,10 @@ ANTHROPIC_API_KEY=your-anthropic-key-for-validation
 ### 3. Run the Server
 
 ```bash
-# With Poetry
-poetry run python app.py
+# With uv
+uv run python app.py
 
-# Or directly
+# Or directly (after installing dependencies)
 python app.py
 
 # With Docker Compose
@@ -209,27 +212,26 @@ SMALL_MODEL=llama3.1:8b
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run with coverage
-poetry run pytest --cov=. --cov-report=html
+uv run pytest --cov=. --cov-report=html
 
 # Run specific test file
-poetry run pytest tests/test_app.py -v
+uv run pytest tests/test_app.py -v
 ```
 
 ### Code Quality
 
 ```bash
 # Format code
-poetry run black .
-poetry run isort .
+uv run black .
 
 # Lint code
-poetry run ruff check .
+uv run ruff check .
 
 # Type checking
-poetry run mypy .
+uv run mypy .
 ```
 
 ### Project Structure
