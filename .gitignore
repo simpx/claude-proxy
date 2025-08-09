@@ -51,4 +51,6 @@ logs/
 Thumbs.db
 
 # Poetry
-poetry.lock
+poetry.lock# Test scripts
+a.sh
+test_api.sh
