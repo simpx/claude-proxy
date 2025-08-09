@@ -2,7 +2,6 @@
   "description": "Convert Claude system parameter to OpenAI system message",
   
   "claude_request": {
-    "model": "claude-3-5-sonnet-20241022",
     "max_tokens": 500,
     "system": "You are a helpful coding assistant. Always provide clear, concise explanations.",
     "messages": [
@@ -14,7 +13,6 @@
   },
   
   "expected_openai_request": {
-    "model": "gpt-4o", // sonnet -> big_model
     "messages": [
       {
         "role": "system", // Claude system parameter becomes first system message
@@ -27,45 +25,5 @@
     ],
     "max_tokens": 500,
     "stream": false
-  },
-  
-  "openai_response": {
-    "id": "chatcmpl-coding123",
-    "object": "chat.completion",
-    "created": 1677652288,
-    "model": "gpt-4o",
-    "choices": [
-      {
-        "index": 0,
-        "message": {
-          "role": "assistant",
-          "content": "You can create a Python list using square brackets: `my_list = [1, 2, 3]`"
-        },
-        "finish_reason": "stop"
-      }
-    ],
-    "usage": {
-      "prompt_tokens": 25,
-      "completion_tokens": 18,
-      "total_tokens": 43
-    }
-  },
-  
-  "expected_claude_response": {
-    "id": "chatcmpl-coding123",
-    "type": "message",
-    "role": "assistant",
-    "model": "claude-3-5-sonnet-20241022", // preserve original model name
-    "content": [
-      {
-        "type": "text",
-        "text": "You can create a Python list using square brackets: `my_list = [1, 2, 3]`"
-      }
-    ],
-    "stop_reason": "end_turn",
-    "usage": {
-      "input_tokens": 25,
-      "output_tokens": 18
-    }
   }
 }

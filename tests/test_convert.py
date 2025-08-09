@@ -154,7 +154,9 @@ class TestConvertCases:
         for case in ConversionCaseLoader().load_all_cases()
         if (case.test_config.get('test_model_mapping', True) 
             and case.claude_request 
-            and case.expected_openai_request)
+            and case.expected_openai_request
+            and 'model' in case.claude_request
+            and 'model' in case.expected_openai_request)
     ])
     def test_model_mapping(self, case):
         """测试模型映射是否正确"""

@@ -78,18 +78,50 @@ class ConversionCaseLoader:
             category = file_path.parent.name
             file_name = file_path.stem  # 文件名不带扩展名
             
+            # 处理model字段：当request和expected都不含model时，给它们添加默认值
+            claude_request = data.get('claude_request')
+            expected_openai_request = data.get('expected_openai_request')
+            openai_response = data.get('openai_response')
+            expected_claude_response = data.get('expected_claude_response')
+            
+            # 处理请求转换的model字段
+            should_skip_model_mapping = False
+            if claude_request and expected_openai_request:
+                if 'model' not in claude_request and 'model' not in expected_openai_request:
+                    # 两个都没有model，添加默认值，并标记不测试model映射
+                    claude_request = claude_request.copy()
+                    expected_openai_request = expected_openai_request.copy()
+                    claude_request['model'] = 'claude-3-haiku-20240307'
+                    expected_openai_request['model'] = 'gpt-4o-mini'
+                    should_skip_model_mapping = True
+            
+            # 处理响应转换的model字段
+            if openai_response and expected_claude_response:
+                if 'model' not in openai_response and 'model' not in expected_claude_response:
+                    # 两个都没有model，添加默认值
+                    openai_response = openai_response.copy()
+                    expected_claude_response = expected_claude_response.copy()
+                    openai_response['model'] = 'gpt-4o-mini'
+                    expected_claude_response['model'] = 'claude-3-haiku-20240307'
+                    should_skip_model_mapping = True
+            
+            # 更新test_config
+            test_config = data.get('test_config', {}).copy()
+            if should_skip_model_mapping:
+                test_config['test_model_mapping'] = False
+            
             return ConversionTestCase(
                 file_name=file_name,
                 description=data.get('description', ''),
                 category=category,
                 tags=data.get('tags', []),
-                claude_request=data.get('claude_request'),
-                expected_openai_request=data.get('expected_openai_request'),
-                openai_response=data.get('openai_response'),
-                expected_claude_response=data.get('expected_claude_response'),
+                claude_request=claude_request,
+                expected_openai_request=expected_openai_request,
+                openai_response=openai_response,
+                expected_claude_response=expected_claude_response,
                 openai_streaming_response=data.get('openai_streaming_response'),
                 expected_claude_streaming_response=data.get('expected_claude_streaming_response'),
-                test_config=data.get('test_config', {}),
+                test_config=test_config,
                 env=data.get('env', {}),
                 file_path=str(file_path)
             )
