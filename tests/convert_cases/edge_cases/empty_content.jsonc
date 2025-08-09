@@ -1,0 +1,66 @@
+{
+  "description": "Test conversion behavior with empty message content",
+  
+  "claude_request": {
+    "model": "claude-3-haiku-20240307",
+    "max_tokens": 100,
+    "messages": [
+      {
+        "role": "user",
+        "content": ""
+      }
+    ]
+  },
+  
+  "expected_openai_request": {
+    "model": "gpt-4o-mini", // haiku -> small_model
+    "messages": [
+      {
+        "role": "user",
+        "content": ""
+      }
+    ],
+    "max_tokens": 100,
+    "stream": false
+  },
+  
+  "openai_response": {
+    "id": "chatcmpl-empty123",
+    "object": "chat.completion",
+    "created": 1677652288,
+    "model": "gpt-4o-mini",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "I notice your message appears to be empty. How can I help you today?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 8,
+      "completion_tokens": 16,
+      "total_tokens": 24
+    }
+  },
+  
+  "expected_claude_response": {
+    "id": "chatcmpl-empty123",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-3-haiku-20240307",
+    "content": [
+      {
+        "type": "text",
+        "text": "I notice your message appears to be empty. How can I help you today?"
+      }
+    ],
+    "stop_reason": "end_turn",
+    "usage": {
+      "input_tokens": 8,
+      "output_tokens": 16
+    }
+  }
+}

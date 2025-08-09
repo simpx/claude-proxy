@@ -1,0 +1,168 @@
+{
+  "description": "Convert OpenAI streaming response to Claude streaming format",
+  
+  "test_config": {
+    "test_response_conversion": false  // Skip until streaming is implemented
+  },
+  
+  "claude_request": {
+    "model": "claude-3-haiku-20240307",
+    "max_tokens": 200,
+    "stream": true,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Write a short poem about coding."
+      }
+    ]
+  },
+  
+  "expected_openai_request": {
+    "model": "gpt-4o-mini", // haiku -> small_model
+    "messages": [
+      {
+        "role": "user",
+        "content": "Write a short poem about coding."
+      }
+    ],
+    "max_tokens": 200,
+    "stream": true
+  },
+  
+  // OpenAI streaming response as array of chunks
+  "openai_response": [
+    {
+      "id": "chatcmpl-poem789",
+      "object": "chat.completion.chunk",
+      "created": 1677652288,
+      "model": "gpt-4o-mini",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "role": "assistant",
+            "content": ""
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-poem789",
+      "object": "chat.completion.chunk",
+      "created": 1677652288,
+      "model": "gpt-4o-mini",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "Lines"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-poem789",
+      "object": "chat.completion.chunk",
+      "created": 1677652288,
+      "model": "gpt-4o-mini",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": " of code flow like poetry,\n"
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "chatcmpl-poem789",
+      "object": "chat.completion.chunk",
+      "created": 1677652288,
+      "model": "gpt-4o-mini",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "Each function a verse of logic."
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 12,
+        "completion_tokens": 15,
+        "total_tokens": 27
+      }
+    }
+  ],
+  
+  // Claude streaming response format
+  "expected_claude_response": [
+    {
+      "type": "message_start",
+      "message": {
+        "id": "chatcmpl-poem789",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-3-haiku-20240307",
+        "content": [],
+        "stop_reason": null,
+        "usage": {
+          "input_tokens": 12,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "content_block_start",
+      "index": 0,
+      "content_block": {
+        "type": "text",
+        "text": ""
+      }
+    },
+    {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "text_delta",
+        "text": "Lines"
+      }
+    },
+    {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "text_delta",
+        "text": " of code flow like poetry,\n"
+      }
+    },
+    {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "text_delta",
+        "text": "Each function a verse of logic."
+      }
+    },
+    {
+      "type": "content_block_stop",
+      "index": 0
+    },
+    {
+      "type": "message_delta",
+      "delta": {
+        "stop_reason": "end_turn"
+      },
+      "usage": {
+        "output_tokens": 15
+      }
+    },
+    {
+      "type": "message_stop"
+    }
+  ]
+}

@@ -7,7 +7,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 import httpx
 
-from ..config import map_claude_model
+from ..config import map_claude_model, get_settings
 from ..models.claude import (
     ClaudeMessage,
     ClaudeMessagesRequest,
@@ -107,7 +107,7 @@ class OpenAIProvider(BaseProvider):
     def convert_response(
         self, 
         response: Dict[str, Any], 
-        original_request: ClaudeMessagesRequest
+        original_request: Optional[ClaudeMessagesRequest] = None
     ) -> ClaudeMessagesResponse:
         """Convert OpenAI response to Claude format."""
         choice = response["choices"][0]
@@ -135,13 +135,31 @@ class OpenAIProvider(BaseProvider):
             output_tokens=usage_data.get("completion_tokens", 0)
         )
         
+        # Determine model from original request or infer from response
+        model = original_request.model if original_request else self._infer_claude_model(response.get("model"))
+        
         return ClaudeMessagesResponse(
             id=response["id"],
-            model=original_request.model,
+            model=model,
             content=content,
             stop_reason=self._convert_finish_reason(choice.get("finish_reason")),
             usage=usage
         )
+    
+    def _infer_claude_model(self, openai_model: Optional[str]) -> str:
+        """Infer Claude model from OpenAI model response."""
+        if not openai_model:
+            return "claude-3-haiku-20240307"  # Default fallback
+        
+        # Reverse mapping from OpenAI models to Claude models
+        settings = get_settings()
+        if openai_model == settings.big_model:
+            return "claude-3-opus-20240229"  # Default big model
+        elif openai_model == settings.small_model:
+            return "claude-3-haiku-20240307"  # Default small model
+        else:
+            # For custom models, default to haiku
+            return "claude-3-haiku-20240307"
     
     def _convert_finish_reason(self, openai_reason: Optional[str]) -> Optional[str]:
         """Convert OpenAI finish reason to Claude format."""

@@ -1,0 +1,66 @@
+{
+  "description": "Test various Claude model names map to correct OpenAI models",
+  
+  "claude_request": {
+    "model": "claude-3-5-sonnet-20241022",
+    "max_tokens": 100,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Test model mapping"
+      }
+    ]
+  },
+  
+  "expected_openai_request": {
+    "model": "gpt-4o", // sonnet -> big_model
+    "messages": [
+      {
+        "role": "user",
+        "content": "Test model mapping"
+      }
+    ],
+    "max_tokens": 100,
+    "stream": false
+  },
+  
+  "openai_response": {
+    "id": "chatcmpl-model-test",
+    "object": "chat.completion",
+    "created": 1677652288,
+    "model": "gpt-4o",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Model mapping test successful."
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 8,
+      "total_tokens": 18
+    }
+  },
+  
+  "expected_claude_response": {
+    "id": "chatcmpl-model-test",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-3-5-sonnet-20241022", // preserve original model name
+    "content": [
+      {
+        "type": "text",
+        "text": "Model mapping test successful."
+      }
+    ],
+    "stop_reason": "end_turn",
+    "usage": {
+      "input_tokens": 10,
+      "output_tokens": 8
+    }
+  }
+}

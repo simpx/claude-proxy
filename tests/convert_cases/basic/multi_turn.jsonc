@@ -1,0 +1,87 @@
+{
+  "description": "Convert multi-turn conversation with history",
+  
+  "claude_request": {
+    "model": "claude-3-opus-20240229",
+    "max_tokens": 800,
+    "system": "You are a patient teacher helping a student learn programming.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is a variable in programming?"
+      },
+      {
+        "role": "assistant",
+        "content": "A variable is like a container that stores a value in your program. You can think of it as a labeled box where you put data."
+      },
+      {
+        "role": "user",
+        "content": "Can you give me an example in Python?"
+      }
+    ]
+  },
+  
+  "expected_openai_request": {
+    "model": "gpt-4o", // opus -> big_model
+    "messages": [
+      {
+        "role": "system", // system parameter becomes first message
+        "content": "You are a patient teacher helping a student learn programming."
+      },
+      {
+        "role": "user",
+        "content": "What is a variable in programming?"
+      },
+      {
+        "role": "assistant", // preserve conversation history
+        "content": "A variable is like a container that stores a value in your program. You can think of it as a labeled box where you put data."
+      },
+      {
+        "role": "user",
+        "content": "Can you give me an example in Python?"
+      }
+    ],
+    "max_tokens": 800,
+    "stream": false
+  },
+  
+  "openai_response": {
+    "id": "chatcmpl-teaching456",
+    "object": "chat.completion",
+    "created": 1677652288,
+    "model": "gpt-4o",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Sure! Here's a simple example:\n\n```python\nname = \"Alice\"\nage = 25\nprint(f\"Hello, my name is {name} and I'm {age} years old.\")\n```\n\nIn this example, `name` and `age` are variables storing a string and a number respectively."
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 85,
+      "completion_tokens": 62,
+      "total_tokens": 147
+    }
+  },
+  
+  "expected_claude_response": {
+    "id": "chatcmpl-teaching456",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-3-opus-20240229",
+    "content": [
+      {
+        "type": "text",
+        "text": "Sure! Here's a simple example:\n\n```python\nname = \"Alice\"\nage = 25\nprint(f\"Hello, my name is {name} and I'm {age} years old.\")\n```\n\nIn this example, `name` and `age` are variables storing a string and a number respectively."
+      }
+    ],
+    "stop_reason": "end_turn",
+    "usage": {
+      "input_tokens": 85,
+      "output_tokens": 62
+    }
+  }
+}

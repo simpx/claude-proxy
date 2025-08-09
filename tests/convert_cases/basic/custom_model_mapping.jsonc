@@ -1,0 +1,32 @@
+{
+  "description": "Test custom model mapping via env variables",
+  
+  // 覆盖环境变量来测试自定义模型映射
+  "env": {
+    "CLAUDE_PROXY_BIG_MODEL": "custom-gpt-4",
+    "CLAUDE_PROXY_SMALL_MODEL": "custom-gpt-3.5"
+  },
+  
+  "claude_request": {
+    "model": "claude-3-opus-20240229",
+    "max_tokens": 100,
+    "messages": [
+      {
+        "role": "user", 
+        "content": "Test custom model mapping"
+      }
+    ]
+  },
+  
+  "expected_openai_request": {
+    "model": "custom-gpt-4", // opus -> custom big model
+    "messages": [
+      {
+        "role": "user",
+        "content": "Test custom model mapping"
+      }
+    ],
+    "max_tokens": 100,
+    "stream": false
+  }
+}
