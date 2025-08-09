@@ -2,6 +2,7 @@
 
 import json
 import time
+import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 import httpx
@@ -162,22 +163,41 @@ class OpenAIProvider(BaseProvider):
         request_id: str
     ) -> ClaudeMessagesResponse:
         """Complete a non-streaming request."""
+        logging.debug(f"Starting 'complete' method with request_id={request_id}")
         openai_request = self.convert_request(request)
+        logging.debug(f"Converted request: {openai_request}")
+        
+        # Log the exact URL and headers being used
+        url = f"{self.base_url}/chat/completions"
+        headers = self.get_headers()
+        logging.debug(f"Request URL: {url}")
+        logging.debug(f"Request headers: {headers}")
+        logging.debug(f"Base URL: {self.base_url}")
+        logging.debug(f"Client base URL: {self.client.base_url}")
         
         try:
+            logging.debug(f"About to send POST request to: {url}")
             response = await self.client.post(
                 f"{self.base_url}/chat/completions",
                 json=openai_request,
                 headers=self.get_headers()
             )
+            logging.debug(f"HTTP response received: {response.status_code}")
+            logging.debug(f"Response headers: {response.headers}")
             response.raise_for_status()
             response_data = response.json()
+            logging.debug(f"Response data: {response_data}")
             return self.convert_response(response_data, request)
             
         except httpx.HTTPStatusError as e:
+            logging.error(f"HTTPStatusError occurred: {e.response.status_code}, {str(e)}")
+            logging.error(f"Response text: {e.response.text}")
+            logging.error(f"Request URL was: {e.request.url}")
+            logging.error(f"Request headers were: {e.request.headers}")
             error_msg = self.classify_error(str(e), e.response.status_code)
             raise Exception(error_msg) from e
         except Exception as e:
+            logging.error(f"General exception occurred: {str(e)}")
             error_msg = self.classify_error(str(e))
             raise Exception(error_msg) from e
     
@@ -187,7 +207,9 @@ class OpenAIProvider(BaseProvider):
         request_id: str
     ) -> AsyncGenerator[str, None]:
         """Stream a completion request."""
+        logging.debug(f"Starting 'stream_complete' method with request_id={request_id}")
         openai_request = self.convert_request(request)
+        logging.debug(f"Converted request for streaming: {openai_request}")
         openai_request["stream"] = True
         
         try:
@@ -197,6 +219,7 @@ class OpenAIProvider(BaseProvider):
                 json=openai_request,
                 headers=self.get_headers()
             ) as response:
+                logging.debug(f"Streaming HTTP response status: {response.status_code}")
                 response.raise_for_status()
                 
                 # Send initial message_start event
@@ -228,13 +251,16 @@ class OpenAIProvider(BaseProvider):
                 
                 total_tokens = 0
                 async for line in response.aiter_lines():
+                    logging.debug(f"Streaming line received: {line}")
                     if line.startswith("data: "):
                         data = line[6:]  # Remove "data: " prefix
                         if data.strip() == "[DONE]":
+                            logging.debug("Streaming completed with [DONE] signal.")
                             break
                         
                         try:
                             chunk = json.loads(data)
+                            logging.debug(f"Parsed chunk: {chunk}")
                             choice = chunk["choices"][0]
                             delta = choice.get("delta", {})
                             
@@ -275,10 +301,12 @@ class OpenAIProvider(BaseProvider):
                                 stop_event = {"type": "message_stop"}
                                 yield f"event: message_stop\ndata: {json.dumps(stop_event)}\n\n"
                                 break
-                        except json.JSONDecodeError:
+                        except json.JSONDecodeError as e:
+                            logging.error(f"JSONDecodeError occurred: {str(e)}")
                             continue
                             
         except httpx.HTTPStatusError as e:
+            logging.error(f"HTTPStatusError occurred during streaming: {e.response.status_code}, {str(e)}")
             error_msg = self.classify_error(str(e), e.response.status_code)
             error_event = {
                 "type": "error", 
@@ -289,6 +317,7 @@ class OpenAIProvider(BaseProvider):
             }
             yield f"event: error\ndata: {json.dumps(error_event)}\n\n"
         except Exception as e:
+            logging.error(f"General exception occurred during streaming: {str(e)}")
             error_msg = self.classify_error(str(e))
             error_event = {
                 "type": "error",

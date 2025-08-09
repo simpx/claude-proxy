@@ -1,6 +1,6 @@
 [project]
 name = "claude-proxy"
-version = "0.1.0"
+version = "0.2.0"
 description = "A production-ready Claude API proxy server"
 authors = [
     {name = "simpx", email = "simpxx@gmail.com"}

@@ -203,7 +203,7 @@ async def health_check():
 async def test_connection(provider: OpenAIProvider = Depends(get_provider)):
     """Test connectivity to the target API."""
     try:
-        from models.claude import ClaudeMessage, ClaudeMessagesRequest
+        from .models.claude import ClaudeMessage, ClaudeMessagesRequest
         
         test_request = ClaudeMessagesRequest(
             model="claude-3-haiku",

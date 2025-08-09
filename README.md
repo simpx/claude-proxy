@@ -1,345 +1,349 @@
 # Claude API Proxy
 
-A production-ready Claude API proxy server that enables seamless integration with OpenAI-compatible API providers.
+A production-ready Claude API proxy server that converts Claude API requests to OpenAI-compatible format. Extremely simple to use - just set environment variables and run.
 
 ## Features
 
 - 🔄 **Protocol Conversion**: Complete Claude API to OpenAI API format conversion
 - 🚀 **High Performance**: Async FastAPI with connection pooling 
 - 📡 **Streaming Support**: Real-time Server-Sent Events streaming
-- 🎯 **Smart Model Mapping**: Configurable model routing (Haiku→Small, Sonnet/Opus→Big)
-- 🔒 **Secure**: Optional API key validation and request authentication
+- 🎯 **Smart Model Mapping**: Automatic model routing (Haiku→Small, Sonnet/Opus→Big)
 - 🐳 **Docker Ready**: Easy deployment with Docker/Docker Compose
 - 🔍 **Observable**: Health checks, logging, and error handling
-- 🛠️ **Developer Friendly**: Type-safe with Pydantic models
+- ⚡ **Zero Configuration**: Works with any OpenAI-compatible API
 
 ## Quick Start
 
-### 🚀 Simple Testing (Recommended)
+### 🚀 Install and Run
 
-For quick local testing, just install and run:
+#### Quick Testing (Recommended)
+Perfect for local development and testing:
 
 ```bash
 # Install from PyPI
 pip install claude-proxy
 
-# Set your OpenAI API key
-export OPENAI_API_KEY=sk-your-openai-key
+# Set your API configuration
+export OPENAI_API_KEY=sk-your-api-key
+export OPENAI_BASE_URL=https://api.openai.com/v1
 
-# Start the proxy (default: http://localhost:8085)
+# Start the proxy (runs on http://localhost:8085)
 claude-proxy
 ```
 
-That's it! The proxy will start and be ready to use with Claude Code.
+#### Production Deployment
 
-### ⚙️ Advanced Configuration
+**🐳 Docker (Recommended for Production)**
 
-For custom configuration, set environment variables:
-
-```bash
-# API Configuration
-export OPENAI_API_KEY=sk-your-openai-key
-export OPENAI_BASE_URL=https://api.openai.com/v1  # Optional
-
-# Model Mapping
-export BIG_MODEL=gpt-4o          # For Claude Sonnet/Opus requests
-export SMALL_MODEL=gpt-4o-mini   # For Claude Haiku requests
-
-# Server Settings
-export HOST=0.0.0.0
-export PORT=8085
-export LOG_LEVEL=INFO
-
-# Optional: API key validation
-export ANTHROPIC_API_KEY=your-anthropic-key-for-validation
-
-# Then run
-claude-proxy
-```
-
-### 🏭 Production Deployment
-
-For production use with better performance and reliability:
+The easiest and most reliable way to run in production:
 
 ```bash
-# Install with production dependencies
-pip install claude-proxy[production]
-
-# Option 1: Run with uvicorn (ASGI server)
-uvicorn claude_proxy.main:app --host 0.0.0.0 --port 8085 --workers 4
-
-# Option 2: Run with gunicorn + uvicorn workers (recommended)
-gunicorn claude_proxy.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8085
-
-# Option 3: Behind a reverse proxy (nginx/traefik)
-uvicorn claude_proxy.main:app --host 127.0.0.1 --port 8085 --workers 4
-```
-
-#### Production Environment Variables
-
-```bash
-# Required
+# 1. Set environment variables
 export OPENAI_API_KEY=sk-your-production-key
+export OPENAI_BASE_URL=https://api.openai.com/v1
 
-# Recommended for production
-export ANTHROPIC_API_KEY=your-validation-key  # Enable API key validation
-export LOG_LEVEL=WARNING  # Reduce log verbosity
-export REQUEST_TIMEOUT=60  # Shorter timeout for production
-```
-
-### 🐳 Docker Deployment
-
-```bash
-# Build and run with docker-compose
+# 2. Start with docker-compose (recommended)
 docker-compose up -d
 
-# Or build manually
+# Or build and run manually
 docker build -t claude-proxy .
-docker run -p 8085:8085 -e OPENAI_API_KEY=your-key claude-proxy
+docker run -p 8085:8085 --env-file .env claude-proxy
 ```
 
-### 🔗 Use with Claude Code
+**⚡ Manual Production Setup**
+
+For environments where Docker isn't available:
 
 ```bash
-# Set the proxy URL
+# Install with production dependencies (includes Gunicorn)
+pip install claude-proxy[production]
+
+# Set your configuration
+export OPENAI_API_KEY=sk-your-production-key
+export OPENAI_BASE_URL=https://api.openai.com/v1
+
+# Run with Gunicorn + Uvicorn workers (production-ready)
+gunicorn claude_proxy.main:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8085 \
+  --access-logfile - \
+  --error-logfile -
+```
+
+**🎯 Production Features**
+
+- **Multi-process**: 4 Gunicorn workers with Uvicorn for high concurrency  
+- **Health checks**: Built-in monitoring endpoint
+- **Security**: Non-root user, minimal attack surface
+- **Resource limits**: Configurable CPU/memory constraints
+- **Auto-restart**: Automatic recovery from failures
+
+That's it! The proxy is ready to use with Claude Code.
+
+## Supported Providers
+
+### OpenAI (Default)
+```bash
+export OPENAI_API_KEY=sk-proj-xxx
+export OPENAI_BASE_URL=https://api.openai.com/v1
+export BIG_MODEL=gpt-4o
+export SMALL_MODEL=gpt-4o-mini
+claude-proxy
+```
+
+### Alibaba Cloud DashScope
+```bash
+export OPENAI_API_KEY=sk-xxx
+export OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+export BIG_MODEL=qwen-plus
+export SMALL_MODEL=qwen-plus
+claude-proxy
+```
+
+### Azure OpenAI
+```bash
+export OPENAI_API_KEY=your-azure-key
+export OPENAI_BASE_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment
+export BIG_MODEL=gpt-4
+export SMALL_MODEL=gpt-35-turbo
+claude-proxy
+```
+
+### Local Ollama
+```bash
+export OPENAI_API_KEY=dummy-key
+export OPENAI_BASE_URL=http://localhost:11434/v1
+export BIG_MODEL=llama3.1:70b
+export SMALL_MODEL=llama3.1:8b
+claude-proxy
+```
+
+### Any OpenAI-Compatible API
+```bash
+export OPENAI_API_KEY=your-api-key
+export OPENAI_BASE_URL=https://your-api-endpoint/v1
+export BIG_MODEL=your-big-model
+export SMALL_MODEL=your-small-model
+claude-proxy
+```
+
+## Environment Variables
+
+### Required
+- `OPENAI_API_KEY` - API key for your target provider
+
+### Optional  
+- `OPENAI_BASE_URL` - API endpoint URL (default: `https://api.openai.com/v1`)
+- `BIG_MODEL` - Model for Claude Sonnet/Opus requests (default: `gpt-4o`)
+- `SMALL_MODEL` - Model for Claude Haiku requests (default: `gpt-4o-mini`)
+- `HOST` - Server host (default: `0.0.0.0`)
+- `PORT` - Server port (default: `8085`)
+- `LOG_LEVEL` - Logging level (default: `INFO`)
+- `REQUEST_TIMEOUT` - Request timeout in seconds (default: `90`)
+- `ANTHROPIC_API_KEY` - Enable API key validation (optional)
+
+## Model Mapping
+
+The proxy automatically maps Claude models to your configured models:
+
+| Claude Request | Environment Variable | Default Value |
+|---------------|---------------------|---------------|
+| `claude-3-haiku*` | `SMALL_MODEL` | `gpt-4o-mini` |
+| `claude-3-sonnet*` | `BIG_MODEL` | `gpt-4o` |
+| `claude-3-opus*` | `BIG_MODEL` | `gpt-4o` |
+| `claude-sonnet-4*` | `BIG_MODEL` | `gpt-4o` |
+
+## Using with Claude Code
+
+Set the proxy as your Claude endpoint:
+
+```bash
 export ANTHROPIC_BASE_URL=http://localhost:8085
-export ANTHROPIC_API_KEY=any-value  # Or your validation key if set
+export ANTHROPIC_API_KEY=any-value
 
 # Use Claude Code as normal
 claude
 ```
 
-### 🛠️ Development Setup
+## Configuration Examples
 
-For development work:
-
+### Create .env file
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd claude-proxy
+# Copy example configuration
+cp .env.example .env
 
-# Install with uv (recommended)
-uv sync
+# Edit your configuration  
+nano .env
+```
 
-# Run in development mode
-uv run python app.py
+### Example .env for OpenAI
+```env
+OPENAI_API_KEY=sk-proj-xxx
+OPENAI_BASE_URL=https://api.openai.com/v1
+BIG_MODEL=gpt-4o
+SMALL_MODEL=gpt-4o-mini
+LOG_LEVEL=INFO
+```
 
-# Or run the package directly
-uv run claude-proxy
+### Example .env for DashScope
+```env
+OPENAI_API_KEY=sk-xxx
+OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1  
+BIG_MODEL=qwen3-coder-flash
+SMALL_MODEL=qwen3-coder-flash
+LOG_LEVEL=INFO
+```
+
+## Production Deployment
+
+### Basic Production
+```bash
+# Install with production dependencies
+pip install claude-proxy[production]
+
+# Set production environment
+export OPENAI_API_KEY=your-production-key
+export LOG_LEVEL=WARNING
+export REQUEST_TIMEOUT=60
+
+# Run with more workers
+gunicorn claude_proxy.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8085
+```
+
+### Docker Deployment
+```bash
+# Using docker-compose (recommended)
+docker-compose up -d
+
+# Or build and run manually
+docker build -t claude-proxy .
+docker run -p 8085:8085 --env-file .env claude-proxy
+```
+
+### Behind Reverse Proxy
+```bash
+# Run on localhost for nginx/traefik
+export HOST=127.0.0.1
+export PORT=8085
+claude-proxy
 ```
 
 ## API Endpoints
 
-### Main Endpoints
-
-- `POST /v1/messages` - Chat completions (compatible with Claude API)
+- `POST /v1/messages` - Chat completions (Claude API compatible)  
 - `POST /v1/messages/count_tokens` - Token counting
 - `GET /health` - Health check
-- `GET /test-connection` - Test connectivity to target API
-- `GET /` - API information
-
-### Model Mapping
-
-The proxy automatically maps Claude models to your configured models:
-
-| Claude Model | Maps To | Environment Variable |
-|--------------|---------|---------------------|
-| `claude-3-haiku*` | `SMALL_MODEL` | Default: `gpt-4o-mini` |
-| `claude-3-sonnet*` | `BIG_MODEL` | Default: `gpt-4o` |
-| `claude-3-opus*` | `BIG_MODEL` | Default: `gpt-4o` |
-| `claude-sonnet-4*` | `BIG_MODEL` | Default: `gpt-4o` |
-
-## Usage Examples
-
-### Basic Chat Completion
-
-```python
-import httpx
-
-response = httpx.post(
-    "http://localhost:8085/v1/messages",
-    headers={"x-api-key": "your-api-key"},  # Optional if validation disabled
-    json={
-        "model": "claude-3-5-sonnet-20241022",
-        "max_tokens": 100,
-        "messages": [
-            {"role": "user", "content": "Hello, world!"}
-        ]
-    }
-)
-print(response.json())
-```
-
-### Streaming Chat
-
-```python
-import httpx
-
-with httpx.stream(
-    "POST",
-    "http://localhost:8085/v1/messages",
-    headers={"x-api-key": "your-api-key"},
-    json={
-        "model": "claude-3-haiku",
-        "max_tokens": 100,
-        "stream": True,
-        "messages": [
-            {"role": "user", "content": "Tell me a story"}
-        ]
-    }
-) as response:
-    for line in response.iter_lines():
-        if line.startswith("data: "):
-            print(line[6:])  # Remove "data: " prefix
-```
-
-### With System Prompt and Tools
-
-```python
-response = httpx.post(
-    "http://localhost:8085/v1/messages",
-    headers={"x-api-key": "your-api-key"},
-    json={
-        "model": "claude-3-sonnet",
-        "max_tokens": 200,
-        "system": "You are a helpful assistant.",
-        "messages": [
-            {"role": "user", "content": "What's the weather like?"}
-        ],
-        "tools": [
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_weather",
-                    "description": "Get current weather",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location": {"type": "string"}
-                        }
-                    }
-                }
-            }
-        ]
-    }
-)
-```
-
-## Provider Configuration
-
-### OpenAI
-
-```bash
-OPENAI_API_KEY=sk-your-openai-key
-OPENAI_BASE_URL=https://api.openai.com/v1
-BIG_MODEL=gpt-4o
-SMALL_MODEL=gpt-4o-mini
-```
-
-### Azure OpenAI
-
-```bash
-OPENAI_API_KEY=your-azure-key
-OPENAI_BASE_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment
-BIG_MODEL=gpt-4
-SMALL_MODEL=gpt-35-turbo
-```
-
-### Local Models (Ollama)
-
-```bash
-OPENAI_API_KEY=dummy-key  # Required but can be dummy
-OPENAI_BASE_URL=http://localhost:11434/v1
-BIG_MODEL=llama3.1:70b
-SMALL_MODEL=llama3.1:8b
-```
+- `GET /test-connection` - Test target API connectivity  
+- `GET /` - Service information
 
 ## Development
 
-### Running Tests
+### Setup Development Environment
+```bash
+# Clone repository
+git clone <repository-url>
+cd claude-proxy
 
+# Install with uv
+uv sync
+
+# Set development configuration
+cp .env.example .env
+nano .env
+
+# Run in development
+uv run claude-proxy
+```
+
+### Running Tests
 ```bash
 # Run all tests
 uv run pytest
 
 # Run with coverage
-uv run pytest --cov=. --cov-report=html
+uv run pytest --cov=claude_proxy --cov-report=html
 
-# Run specific test file
+# Test specific functionality
 uv run pytest tests/test_app.py -v
 ```
 
 ### Code Quality
-
 ```bash
 # Format code
 uv run black .
 
-# Lint code
+# Lint code  
 uv run ruff check .
 
 # Type checking
 uv run mypy .
 ```
 
-### Project Structure
+## Troubleshooting
 
-```
-claude-proxy/
-├── app.py                 # FastAPI application
-├── config.py             # Configuration management
-├── utils.py              # Utility functions
-├── models/               # Data models
-│   ├── claude.py         # Claude API models
-│   └── openai.py         # OpenAI API models
-├── providers/            # LLM provider implementations
-│   ├── base.py          # Base provider class
-│   ├── openai.py        # OpenAI provider
-│   └── anthropic.py     # Anthropic provider (pass-through)
-└── tests/               # Test suite
-```
-
-## Deployment
-
-### Docker
-
+### Connection Issues
 ```bash
-# Build image
-docker build -t claude-proxy .
+# Test target API directly
+curl -X POST "$OPENAI_BASE_URL/chat/completions" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-3.5-turbo","messages":[{"role":"user","content":"test"}],"max_tokens":5}'
 
-# Run container
-docker run -p 8085:8085 --env-file .env claude-proxy
+# Test proxy health
+curl http://localhost:8085/health
+
+# Test proxy connection  
+curl http://localhost:8085/test-connection
 ```
 
-### Docker Compose
+### Common Issues
+- **404 Not Found**: Check your `OPENAI_BASE_URL` and model names
+- **401 Unauthorized**: Verify your `OPENAI_API_KEY` is valid
+- **Model not found**: Ensure `BIG_MODEL` and `SMALL_MODEL` exist in your provider
 
+## Examples
+
+### Basic Chat Request
 ```bash
-# Create .env file with your configuration
-cp .env.example .env
-
-# Start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
+curl -X POST http://localhost:8085/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-5-sonnet-20241022",
+    "max_tokens": 100,
+    "messages": [
+      {"role": "user", "content": "Hello, world!"}
+    ]
+  }'
 ```
 
-### Production Considerations
+### With System Prompt  
+```bash
+curl -X POST http://localhost:8085/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-haiku",
+    "max_tokens": 100,
+    "system": "You are a helpful assistant.",
+    "messages": [
+      {"role": "user", "content": "Explain quantum computing"}
+    ]
+  }'
+```
 
-- Use a reverse proxy (Nginx/Traefik) for HTTPS termination
-- Set up monitoring and logging
-- Configure resource limits and health checks
-- Use secrets management for API keys
-- Enable API key validation in production
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Run the test suite
-6. Submit a pull request
+### Streaming Request
+```bash
+curl -X POST http://localhost:8085/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-sonnet",
+    "max_tokens": 100,
+    "stream": true,
+    "messages": [
+      {"role": "user", "content": "Tell me a story"}
+    ]
+  }'
+```
 
 ## License
 

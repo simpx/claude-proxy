@@ -2,22 +2,24 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies and uv
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install uv
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for faster package installation
+RUN pip install --no-cache-dir uv
 
 # Copy dependency files
 COPY pyproject.toml ./
 
-# Install dependencies
-RUN uv pip install --system -e .
+# Install dependencies (production includes gunicorn)
+RUN uv pip install --system -e .[production]
 
 # Copy application code
 COPY . .
 
-# Create non-root user
+# Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 RUN chown -R appuser:appuser /app
 USER appuser
@@ -29,5 +31,5 @@ EXPOSE 8085
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8085/health || exit 1
 
-# Run application
-CMD ["python", "app.py"]
+# Production command: Gunicorn with Uvicorn workers
+CMD ["gunicorn", "claude_proxy.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8085", "--access-logfile", "-", "--error-logfile", "-"]
