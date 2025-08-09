@@ -173,6 +173,15 @@ class ConversionTestValidator:
         
         if len(actual_content) != len(expected_content):
             errors.append(f"Content blocks count mismatch: expected {len(expected_content)}, got {len(actual_content)}")
+        else:
+            # 验证每个内容块的详细内容
+            for i, (actual_block, expected_block) in enumerate(zip(actual_content, expected_content)):
+                if actual_block.get('type') != expected_block.get('type'):
+                    errors.append(f"Content block {i} type mismatch: expected {expected_block.get('type')}, got {actual_block.get('type')}")
+                
+                if actual_block.get('type') == 'text':
+                    if actual_block.get('text') != expected_block.get('text'):
+                        errors.append(f"Content block {i} text mismatch: expected '{expected_block.get('text')}', got '{actual_block.get('text')}'")
         
         # 验证使用统计转换
         actual_usage = actual_claude_response.get('usage', {})

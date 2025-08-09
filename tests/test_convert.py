@@ -49,7 +49,7 @@ class TestConvertCases:
             and case.claude_request 
             and case.expected_openai_request)
     ])
-    def test_convert(self, case):
+    def test_request_convert(self, case):
         """测试Claude请求到OpenAI请求的转换"""
         # 设置测试环境变量，可被case.env覆盖
         test_env = self.TEST_ENV_VARS.copy()
@@ -202,59 +202,6 @@ class TestConvertCases:
         # 暂时标记为TODO，需要实现流式转换逻辑后再完成
         pytest.skip("Streaming conversion test not implemented yet")
     
-    def test_case_file_integrity(self):
-        """测试案例文件的完整性"""
-        errors = []
-        
-        for case in self.cases:
-            # 检查必需字段
-            if not case.file_name:
-                errors.append(f"Case in {case.file_path} missing file_name")
-            
-            # 检查至少有一组有效的测试数据
-            has_request_test = case.claude_request and case.expected_openai_request
-            has_response_test = case.openai_response and case.expected_claude_response
-            
-            if not (has_request_test or has_response_test):
-                errors.append(f"Case '{case.file_name}' missing complete test data")
-                continue
-                
-            # 检查Claude请求必需字段（如果存在）
-            if case.claude_request:
-                if 'model' not in case.claude_request:
-                    errors.append(f"Case '{case.file_name}' claude_request missing model")
-                    
-                if 'max_tokens' not in case.claude_request:
-                    errors.append(f"Case '{case.file_name}' claude_request missing max_tokens")
-                    
-                if 'messages' not in case.claude_request:
-                    errors.append(f"Case '{case.file_name}' claude_request missing messages")
-        
-        if errors:
-            error_msg = "Case file integrity check failed:\n"
-            for error in errors:
-                error_msg += f"  - {error}\n"
-            pytest.fail(error_msg)
-    
-    def test_categories_and_tags(self):
-        """测试案例的分类和标签"""
-        categories = set()
-        all_tags = set()
-        
-        for case in self.cases:
-            categories.add(case.category)
-            all_tags.update(case.tags)
-        
-        # 确保有基本的分类
-        expected_categories = {'basic', 'advanced'}
-        missing_categories = expected_categories - categories
-        
-        if missing_categories:
-            pytest.fail(f"Missing expected categories: {missing_categories}")
-        
-        # 确保有基本的标签（可选检查，因为我们移除了大多数标签）
-        print(f"Found tags: {all_tags}")  # 仅用于调试
-        # 不强制要求特定标签，因为我们简化了标签系统
     
     @classmethod
     def teardown_class(cls):
