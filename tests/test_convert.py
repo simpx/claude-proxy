@@ -207,14 +207,11 @@ class TestConvertCases:
             test_env.update(case.env)
         
         with patch.dict(os.environ, test_env, clear=False):
-            # 清除缓存的设置并重新加载配置
             import src.claude_proxy.config as config_module
             config_module._settings = None
             
-            # 创建模拟的流式客户端
             mock_client = self._create_mock_streaming_client(case.openai_response)
             
-            # 创建OpenAI provider实例，使用模拟客户端
             provider = OpenAIProvider(
                 api_key="test-key",
                 base_url="https://api.openai.com/v1", 
@@ -222,27 +219,22 @@ class TestConvertCases:
                 client=mock_client
             )
             
-            # 创建Claude请求对象
             from src.claude_proxy.models.claude import ClaudeMessagesRequest
             if case.claude_request:
                 claude_request_obj = ClaudeMessagesRequest(**case.claude_request)
             else:
-                # 为流式测试提供最小默认请求
                 claude_request_obj = ClaudeMessagesRequest(
                     model="claude-3-haiku-20240307",
                     max_tokens=100,
                     messages=[{"role": "user", "content": "test"}]
                 )
             
-            # 调用真实的stream_complete方法
             actual_events = []
             async for sse_event in provider.stream_complete(claude_request_obj, "test-request-id"):
-                # 解析SSE事件
                 event = self._parse_sse_event(sse_event)
                 if event:
                     actual_events.append(event)
             
-            # 验证结果
             self._validate_streaming_events(
                 actual_events,
                 case.expected_claude_response, 
@@ -255,25 +247,21 @@ class TestConvertCases:
         import json
         from unittest.mock import AsyncMock, MagicMock
         
-        # 创建SSE格式的数据
         sse_lines = []
         for chunk in openai_chunks:
             sse_lines.append(f"data: {json.dumps(chunk)}")
         sse_lines.append("data: [DONE]")
         
-        # 创建mock响应
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.raise_for_status = MagicMock()
         
-        # 创建async iterator for aiter_lines
         async def mock_aiter_lines():
             for line in sse_lines:
                 yield line
         
         mock_response.aiter_lines = mock_aiter_lines
         
-        # 创建async context manager
         class MockStreamContext:
             def __init__(self, response):
                 self.response = response
@@ -284,7 +272,6 @@ class TestConvertCases:
             async def __aexit__(self, _exc_type, _exc_val, _exc_tb):
                 return None
         
-        # 创建mock client
         mock_client = AsyncMock()
         
         def mock_stream(*_args, **_kwargs):
@@ -298,7 +285,6 @@ class TestConvertCases:
         """解析provider返回的SSE事件字符串为JSON对象"""
         import json
         
-        # SSE格式: "event: event_name\ndata: {...}\n\n"
         if not sse_event_str.strip():
             return None
         
@@ -307,7 +293,7 @@ class TestConvertCases:
         
         for line in lines:
             if line.startswith('data: '):
-                data_line = line[6:]  # 移除 "data: " 前缀
+                data_line = line[6:]
                 break
         
         if data_line:
@@ -327,8 +313,17 @@ class TestConvertCases:
             if actual.get("type") != expected.get("type"):
                 pytest.fail(f"Event {i} type mismatch in '{case_name}': expected {expected.get('type')}, got {actual.get('type')}\nCase file: {case_file}")
             
-            # 验证关键字段（根据事件类型）
-            if actual["type"] == "content_block_delta":
+            if actual["type"] == "content_block_start":
+                actual_block = actual.get("content_block", {})
+                expected_block = expected.get("content_block", {})
+                
+                if actual_block.get("type") != expected_block.get("type"):
+                    pytest.fail(f"Event {i} content_block type mismatch in '{case_name}': expected {expected_block.get('type')}, got {actual_block.get('type')}\nCase file: {case_file}")
+                
+                if actual_block.get("text") != expected_block.get("text"):
+                    pytest.fail(f"Event {i} content_block text mismatch in '{case_name}': expected '{expected_block.get('text')}', got '{actual_block.get('text')}'\nCase file: {case_file}")
+            
+            elif actual["type"] == "content_block_delta":
                 actual_text = actual.get("delta", {}).get("text", "")
                 expected_text = expected.get("delta", {}).get("text", "")
                 if actual_text != expected_text:
@@ -339,6 +334,24 @@ class TestConvertCases:
                 expected_stop_reason = expected.get("delta", {}).get("stop_reason") 
                 if actual_stop_reason != expected_stop_reason:
                     pytest.fail(f"Event {i} stop_reason mismatch in '{case_name}': expected '{expected_stop_reason}', got '{actual_stop_reason}'\nCase file: {case_file}")
+                
+                actual_usage = actual.get("usage", {})
+                expected_usage = expected.get("usage", {})
+                if expected_usage.get("output_tokens") is not None:
+                    actual_tokens = actual_usage.get("output_tokens")
+                    expected_tokens = expected_usage.get("output_tokens")
+                    if actual_tokens != expected_tokens:
+                        pytest.fail(f"Event {i} output_tokens mismatch in '{case_name}': expected {expected_tokens}, got {actual_tokens}\nCase file: {case_file}")
+            
+            elif actual["type"] == "message_start":
+                actual_msg = actual.get("message", {})
+                expected_msg = expected.get("message", {})
+                
+                if expected_msg.get("model") and actual_msg.get("model") != expected_msg.get("model"):
+                    pytest.fail(f"Event {i} model mismatch in '{case_name}': expected {expected_msg.get('model')}, got {actual_msg.get('model')}\nCase file: {case_file}")
+                
+                if actual_msg.get("role") != expected_msg.get("role"):
+                    pytest.fail(f"Event {i} role mismatch in '{case_name}': expected {expected_msg.get('role')}, got {actual_msg.get('role')}\nCase file: {case_file}")
     
     @classmethod
     def teardown_class(cls):

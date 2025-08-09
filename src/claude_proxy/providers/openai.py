@@ -240,6 +240,8 @@ class OpenAIProvider(BaseProvider):
                 logging.debug(f"Streaming HTTP response status: {response.status_code}")
                 response.raise_for_status()
                 
+                input_tokens = 0
+                
                 # Send initial message_start event
                 start_event = {
                     "type": "message_start",
@@ -251,7 +253,7 @@ class OpenAIProvider(BaseProvider):
                         "content": [],
                         "stop_reason": None,
                         "stop_sequence": None,
-                        "usage": {"input_tokens": 0, "output_tokens": 0}
+                        "usage": {"input_tokens": input_tokens, "output_tokens": 0}
                     }
                 }
                 yield f"event: message_start\ndata: {json.dumps(start_event)}\n\n"
@@ -266,8 +268,6 @@ class OpenAIProvider(BaseProvider):
                     }
                 }
                 yield f"event: content_block_start\ndata: {json.dumps(block_start_event)}\n\n"
-                
-                total_tokens = 0
                 async for line in response.aiter_lines():
                     logging.debug(f"Streaming line received: {line}")
                     if line.startswith("data: "):
@@ -282,8 +282,10 @@ class OpenAIProvider(BaseProvider):
                             choice = chunk["choices"][0]
                             delta = choice.get("delta", {})
                             
+                            if chunk.get("usage"):
+                                input_tokens = chunk["usage"].get("prompt_tokens", input_tokens)
+                            
                             if content := delta.get("content"):
-                                # Send content delta
                                 delta_event = {
                                     "type": "content_block_delta",
                                     "index": 0,
@@ -293,9 +295,11 @@ class OpenAIProvider(BaseProvider):
                                     }
                                 }
                                 yield f"event: content_block_delta\ndata: {json.dumps(delta_event)}\n\n"
-                                total_tokens += len(content.split())  # Rough token count
                             
                             if choice.get("finish_reason"):
+                                usage_info = chunk.get("usage", {})
+                                output_tokens = usage_info.get("completion_tokens", 0)
+                                
                                 # Send content_block_stop event
                                 block_stop_event = {
                                     "type": "content_block_stop",
@@ -303,7 +307,7 @@ class OpenAIProvider(BaseProvider):
                                 }
                                 yield f"event: content_block_stop\ndata: {json.dumps(block_stop_event)}\n\n"
                                 
-                                # Send message_stop event
+                                # Send message_delta event
                                 stop_event = {
                                     "type": "message_delta",
                                     "delta": {
@@ -311,7 +315,7 @@ class OpenAIProvider(BaseProvider):
                                         "stop_sequence": None
                                     },
                                     "usage": {
-                                        "output_tokens": total_tokens
+                                        "output_tokens": output_tokens
                                     }
                                 }
                                 yield f"event: message_delta\ndata: {json.dumps(stop_event)}\n\n"
