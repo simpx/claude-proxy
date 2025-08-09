@@ -27,5 +27,45 @@
     ],
     "max_tokens": 50,
     "stream": false
+  },
+  
+  "openai_response": {
+    "id": "chatcmpl-custom-small-789",
+    "object": "chat.completion",
+    "created": 1677652288,
+    "model": "custom-gpt-3.5-turbo",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "This is a response from the custom small model."
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 8,
+      "completion_tokens": 11,
+      "total_tokens": 19
+    }
+  },
+  
+  "expected_claude_response": {
+    "id": "chatcmpl-custom-small-789",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-3-haiku-20240307",
+    "content": [
+      {
+        "type": "text",
+        "text": "This is a response from the custom small model."
+      }
+    ],
+    "stop_reason": "end_turn",
+    "usage": {
+      "input_tokens": 8,
+      "output_tokens": 11
+    }
   }
 }
