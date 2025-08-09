@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     
     # Server settings
     host: str = Field(default="0.0.0.0", description="Server host")
-    port: int = Field(default=8082, description="Server port")
+    port: int = Field(default=8085, description="Server port")
     log_level: str = Field(default="INFO", description="Log level")
     
     # Model mapping

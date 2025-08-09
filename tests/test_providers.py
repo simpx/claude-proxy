@@ -3,9 +3,9 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from models.claude import ClaudeMessage, ClaudeMessagesRequest
-from providers.openai import OpenAIProvider
-from config import map_claude_model
+from src.claude_proxy.models.claude import ClaudeMessage, ClaudeMessagesRequest
+from src.claude_proxy.providers.openai import OpenAIProvider
+from src.claude_proxy.config import map_claude_model
 
 
 @pytest.fixture

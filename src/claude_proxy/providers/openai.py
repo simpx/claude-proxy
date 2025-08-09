@@ -6,16 +6,16 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 import httpx
 
-from config import map_claude_model
-from models.claude import (
+from ..config import map_claude_model
+from ..models.claude import (
     ClaudeMessage,
     ClaudeMessagesRequest,
     ClaudeMessagesResponse,
     ClaudeTextContent,
     ClaudeUsage,
 )
-from models.openai import OpenAIMessage, OpenAIMessagesRequest
-from utils import generate_request_id, get_current_timestamp
+from ..models.openai import OpenAIMessage, OpenAIMessagesRequest
+from ..utils import generate_request_id, get_current_timestamp
 
 from .base import BaseProvider
 

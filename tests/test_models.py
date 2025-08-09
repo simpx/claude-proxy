@@ -3,14 +3,14 @@
 import pytest
 from pydantic import ValidationError
 
-from models.claude import (
+from src.claude_proxy.models.claude import (
     ClaudeMessage,
     ClaudeMessagesRequest,
     ClaudeMessagesResponse,
     ClaudeTextContent,
     ClaudeUsage,
 )
-from models.openai import OpenAIMessage, OpenAIMessagesRequest
+from src.claude_proxy.models.openai import OpenAIMessage, OpenAIMessagesRequest
 
 
 def test_claude_message_creation():

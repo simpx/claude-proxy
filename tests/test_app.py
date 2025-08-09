@@ -4,9 +4,9 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 
-from app import app
-from config import Settings
-from models.claude import ClaudeMessage, ClaudeMessagesRequest
+from src.claude_proxy.main import app
+from src.claude_proxy.config import Settings
+from src.claude_proxy.models.claude import ClaudeMessage, ClaudeMessagesRequest
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def mock_settings():
     )
 
 
-@patch("app.get_settings")
+@patch("src.claude_proxy.main.get_settings")
 def test_root_endpoint(mock_get_settings, client, mock_settings):
     """Test the root endpoint."""
     mock_get_settings.return_value = mock_settings
@@ -42,7 +42,7 @@ def test_root_endpoint(mock_get_settings, client, mock_settings):
     assert "endpoints" in data
 
 
-@patch("app.get_settings")
+@patch("src.claude_proxy.main.get_settings")
 def test_health_endpoint(mock_get_settings, client, mock_settings):
     """Test the health check endpoint."""
     mock_get_settings.return_value = mock_settings
@@ -56,7 +56,7 @@ def test_health_endpoint(mock_get_settings, client, mock_settings):
     assert "config" in data
 
 
-@patch("app.get_settings")
+@patch("src.claude_proxy.main.get_settings")
 def test_messages_endpoint(mock_get_settings, client, mock_settings):
     """Test the /v1/messages endpoint."""
     mock_get_settings.return_value = mock_settings
@@ -76,7 +76,7 @@ def test_messages_endpoint(mock_get_settings, client, mock_settings):
     assert response.status_code == 500
 
 
-@patch("app.get_settings")
+@patch("src.claude_proxy.main.get_settings")
 def test_count_tokens_endpoint(mock_get_settings, client, mock_settings):
     """Test the token counting endpoint."""
     mock_get_settings.return_value = mock_settings
@@ -96,7 +96,7 @@ def test_count_tokens_endpoint(mock_get_settings, client, mock_settings):
     assert data["input_tokens"] > 0
 
 
-@patch("app.get_settings")
+@patch("src.claude_proxy.main.get_settings")
 def test_api_key_validation(mock_get_settings, client):
     """Test API key validation when enabled."""
     settings = Settings(

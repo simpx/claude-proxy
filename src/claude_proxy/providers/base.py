@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 
 import httpx
 
-from models.claude import ClaudeMessagesRequest, ClaudeMessagesResponse
+from ..models.claude import ClaudeMessagesRequest, ClaudeMessagesResponse
 
 
 class BaseProvider(ABC):

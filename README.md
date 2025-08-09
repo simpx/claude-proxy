@@ -15,69 +15,117 @@ A production-ready Claude API proxy server that enables seamless integration wit
 
 ## Quick Start
 
-### 1. Installation
+### 🚀 Simple Testing (Recommended)
+
+For quick local testing, just install and run:
+
+```bash
+# Install from PyPI
+pip install claude-proxy
+
+# Set your OpenAI API key
+export OPENAI_API_KEY=sk-your-openai-key
+
+# Start the proxy (default: http://localhost:8085)
+claude-proxy
+```
+
+That's it! The proxy will start and be ready to use with Claude Code.
+
+### ⚙️ Advanced Configuration
+
+For custom configuration, set environment variables:
+
+```bash
+# API Configuration
+export OPENAI_API_KEY=sk-your-openai-key
+export OPENAI_BASE_URL=https://api.openai.com/v1  # Optional
+
+# Model Mapping
+export BIG_MODEL=gpt-4o          # For Claude Sonnet/Opus requests
+export SMALL_MODEL=gpt-4o-mini   # For Claude Haiku requests
+
+# Server Settings
+export HOST=0.0.0.0
+export PORT=8085
+export LOG_LEVEL=INFO
+
+# Optional: API key validation
+export ANTHROPIC_API_KEY=your-anthropic-key-for-validation
+
+# Then run
+claude-proxy
+```
+
+### 🏭 Production Deployment
+
+For production use with better performance and reliability:
+
+```bash
+# Install with production dependencies
+pip install claude-proxy[production]
+
+# Option 1: Run with uvicorn (ASGI server)
+uvicorn claude_proxy.main:app --host 0.0.0.0 --port 8085 --workers 4
+
+# Option 2: Run with gunicorn + uvicorn workers (recommended)
+gunicorn claude_proxy.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8085
+
+# Option 3: Behind a reverse proxy (nginx/traefik)
+uvicorn claude_proxy.main:app --host 127.0.0.1 --port 8085 --workers 4
+```
+
+#### Production Environment Variables
+
+```bash
+# Required
+export OPENAI_API_KEY=sk-your-production-key
+
+# Recommended for production
+export ANTHROPIC_API_KEY=your-validation-key  # Enable API key validation
+export LOG_LEVEL=WARNING  # Reduce log verbosity
+export REQUEST_TIMEOUT=60  # Shorter timeout for production
+```
+
+### 🐳 Docker Deployment
+
+```bash
+# Build and run with docker-compose
+docker-compose up -d
+
+# Or build manually
+docker build -t claude-proxy .
+docker run -p 8085:8085 -e OPENAI_API_KEY=your-key claude-proxy
+```
+
+### 🔗 Use with Claude Code
+
+```bash
+# Set the proxy URL
+export ANTHROPIC_BASE_URL=http://localhost:8085
+export ANTHROPIC_API_KEY=any-value  # Or your validation key if set
+
+# Use Claude Code as normal
+claude
+```
+
+### 🛠️ Development Setup
+
+For development work:
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd claude-proxy
 
-# Install dependencies with uv (recommended)
+# Install with uv (recommended)
 uv sync
 
-# Or install directly
-uv pip install -e .
-
-# Or with pip (traditional method)
-pip install -e .
-```
-
-### 2. Configuration
-
-Create a `.env` file:
-
-```bash
-# Required: Your OpenAI API key
-OPENAI_API_KEY=sk-your-openai-key
-
-# Optional: API configuration
-OPENAI_BASE_URL=https://api.openai.com/v1
-
-# Model mapping
-BIG_MODEL=gpt-4o          # For Claude Sonnet/Opus requests
-SMALL_MODEL=gpt-4o-mini   # For Claude Haiku requests
-
-# Server settings
-HOST=0.0.0.0
-PORT=8082
-LOG_LEVEL=INFO
-
-# Optional: API key validation
-ANTHROPIC_API_KEY=your-anthropic-key-for-validation
-```
-
-### 3. Run the Server
-
-```bash
-# With uv
+# Run in development mode
 uv run python app.py
 
-# Or directly (after installing dependencies)
-python app.py
-
-# With Docker Compose
-docker-compose up -d
-```
-
-### 4. Use with Claude Code
-
-```bash
-# Set the proxy URL and API key
-export ANTHROPIC_BASE_URL=http://localhost:8082
-export ANTHROPIC_API_KEY=any-value  # Or your validation key
-
-# Use Claude Code as normal
-claude
+# Or run the package directly
+uv run claude-proxy
 ```
 
 ## API Endpoints
@@ -109,7 +157,7 @@ The proxy automatically maps Claude models to your configured models:
 import httpx
 
 response = httpx.post(
-    "http://localhost:8082/v1/messages",
+    "http://localhost:8085/v1/messages",
     headers={"x-api-key": "your-api-key"},  # Optional if validation disabled
     json={
         "model": "claude-3-5-sonnet-20241022",
@@ -129,7 +177,7 @@ import httpx
 
 with httpx.stream(
     "POST",
-    "http://localhost:8082/v1/messages",
+    "http://localhost:8085/v1/messages",
     headers={"x-api-key": "your-api-key"},
     json={
         "model": "claude-3-haiku",
@@ -149,7 +197,7 @@ with httpx.stream(
 
 ```python
 response = httpx.post(
-    "http://localhost:8082/v1/messages",
+    "http://localhost:8085/v1/messages",
     headers={"x-api-key": "your-api-key"},
     json={
         "model": "claude-3-sonnet",
@@ -260,7 +308,7 @@ claude-proxy/
 docker build -t claude-proxy .
 
 # Run container
-docker run -p 8082:8082 --env-file .env claude-proxy
+docker run -p 8085:8085 --env-file .env claude-proxy
 ```
 
 ### Docker Compose
