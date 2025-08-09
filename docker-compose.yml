@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  claude-proxy:
+    build: .
+    ports:
+      - "8082:8082"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8082
+      - LOG_LEVEL=INFO
+      # Required: Set your OpenAI API key
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      # Model configuration
+      - BIG_MODEL=${BIG_MODEL:-gpt-4o}
+      - SMALL_MODEL=${SMALL_MODEL:-gpt-4o-mini}
+      # Optional: API key validation
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Request settings
+      - MAX_TOKENS_LIMIT=${MAX_TOKENS_LIMIT:-4096}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-90}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
