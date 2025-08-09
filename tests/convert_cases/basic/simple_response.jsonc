@@ -1,0 +1,41 @@
+{
+  "description": "Basic response conversion from OpenAI to Claude format",
+  
+  "openai_response": {
+    "id": "chatcmpl-simple-response-123",
+    "object": "chat.completion",
+    "created": 1677652288,
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Hello! I'm doing well, thank you for asking. How can I help you today?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 13,
+      "completion_tokens": 17,
+      "total_tokens": 30
+    }
+  },
+  
+  "expected_claude_response": {
+    "id": "chatcmpl-simple-response-123",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "Hello! I'm doing well, thank you for asking. How can I help you today?"
+      }
+    ],
+    "stop_reason": "end_turn",
+    "usage": {
+      "input_tokens": 13,
+      "output_tokens": 17
+    }
+  }
+}

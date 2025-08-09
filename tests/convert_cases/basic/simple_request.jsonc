@@ -1,0 +1,23 @@
+{
+  "description": "Basic request conversion from Claude to OpenAI format",
+  "claude_request": {
+    "max_tokens": 1000,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hello, how are you?"
+      }
+    ]
+  },
+  
+  "expected_openai_request": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hello, how are you?"
+      }
+    ],
+    "max_tokens": 1000,
+    "stream": false
+  }
+}
