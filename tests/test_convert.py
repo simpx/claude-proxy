@@ -49,7 +49,7 @@ class TestConvertCases:
             and case.claude_request 
             and case.expected_openai_request)
     ])
-    def test_request_convert(self, case):
+    def test_request_conversion(self, case):
         """测试Claude请求到OpenAI请求的转换"""
         # 设置测试环境变量，可被case.env覆盖
         test_env = self.TEST_ENV_VARS.copy()
