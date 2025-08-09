@@ -1,0 +1,57 @@
+{
+  "description": "Test OpenAI finish_reason 'tool_calls' to Claude stop_reason 'tool_use' conversion",
+  
+  "openai_response": {
+    "id": "chatcmpl-tools-123",
+    "object": "chat.completion",
+    "created": 1677652288,
+    "model": "gpt-4o-mini",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_123",
+              "type": "function",
+              "function": {
+                "name": "search_web",
+                "arguments": "{\"query\": \"Claude AI\"}"
+              }
+            }
+          ]
+        },
+        "finish_reason": "tool_calls"  // Triggered tool calls
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 30,
+      "completion_tokens": 20,
+      "total_tokens": 50
+    }
+  },
+  
+  "expected_claude_response": {
+    "id": "chatcmpl-tools-123",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-3-haiku-20240307",
+    "content": [  // Tool calls are converted to Claude tool_use format
+      {
+        "type": "tool_use",
+        "id": "call_123",
+        "name": "search_web",
+        "input": {
+          "query": "Claude AI"
+        }
+      }
+    ],
+    "stop_reason": "tool_use",  // finish_reason "tool_calls" -> stop_reason "tool_use"
+    "usage": {
+      "input_tokens": 30,
+      "output_tokens": 20
+    }
+  }
+}

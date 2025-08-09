@@ -193,7 +193,7 @@ class ConversionTestValidator:
         errors = []
         
         # 验证基本字段
-        basic_fields = ['id', 'type', 'role', 'model']
+        basic_fields = ['id', 'type', 'role', 'model', 'stop_reason']
         for field in basic_fields:
             if field in expected_claude_response:
                 if actual_claude_response.get(field) != expected_claude_response.get(field):

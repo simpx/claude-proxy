@@ -1,0 +1,38 @@
+{
+  "description": "Test response conversion with empty assistant message content",
+  
+  "openai_response": {
+    "id": "chatcmpl-empty-response-123",
+    "object": "chat.completion",
+    "created": 1677652288,
+    "model": "gpt-4o-mini",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 0,
+      "total_tokens": 10
+    }
+  },
+  
+  "expected_claude_response": {
+    "id": "chatcmpl-empty-response-123",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-3-haiku-20240307",
+    "content": [],  // Empty content creates empty array, not text block with empty string
+    "stop_reason": "end_turn",
+    "usage": {
+      "input_tokens": 10,
+      "output_tokens": 0
+    }
+  }
+}

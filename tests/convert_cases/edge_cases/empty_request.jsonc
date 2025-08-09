@@ -1,0 +1,26 @@
+{
+  "description": "Test request conversion with empty user message content",
+  
+  "claude_request": {
+    "model": "claude-3-haiku-20240307",
+    "max_tokens": 100,
+    "messages": [
+      {
+        "role": "user",
+        "content": ""
+      }
+    ]
+  },
+  
+  "expected_openai_request": {
+    "model": "gpt-4o-mini", // haiku -> small_model
+    "messages": [
+      {
+        "role": "user",
+        "content": ""
+      }
+    ],
+    "max_tokens": 100,
+    "stream": false
+  }
+}

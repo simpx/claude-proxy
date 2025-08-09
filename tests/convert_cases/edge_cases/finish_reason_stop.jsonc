@@ -1,0 +1,43 @@
+{
+  "description": "Test OpenAI finish_reason 'stop' to Claude stop_reason 'end_turn' conversion",
+  
+  "openai_response": {
+    "id": "chatcmpl-stop-123",
+    "object": "chat.completion",
+    "created": 1677652288,
+    "model": "gpt-4o-mini",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "This is a complete response that ends naturally."
+        },
+        "finish_reason": "stop"  // Normal completion
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 15,
+      "completion_tokens": 10,
+      "total_tokens": 25
+    }
+  },
+  
+  "expected_claude_response": {
+    "id": "chatcmpl-stop-123",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-3-haiku-20240307",
+    "content": [
+      {
+        "type": "text",
+        "text": "This is a complete response that ends naturally."
+      }
+    ],
+    "stop_reason": "end_turn",  // finish_reason "stop" -> stop_reason "end_turn"
+    "usage": {
+      "input_tokens": 15,
+      "output_tokens": 10
+    }
+  }
+}

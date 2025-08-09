@@ -1,0 +1,43 @@
+{
+  "description": "Test OpenAI finish_reason 'length' to Claude stop_reason 'max_tokens' conversion",
+  
+  "openai_response": {
+    "id": "chatcmpl-length-123",
+    "object": "chat.completion",
+    "created": 1677652288,
+    "model": "gpt-4o-mini",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Once upon a time, in a world where programming languages lived together in harmony, there was a"
+        },
+        "finish_reason": "length"  // Hit max_tokens limit
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 20,
+      "total_tokens": 40
+    }
+  },
+  
+  "expected_claude_response": {
+    "id": "chatcmpl-length-123",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-3-haiku-20240307",
+    "content": [
+      {
+        "type": "text",
+        "text": "Once upon a time, in a world where programming languages lived together in harmony, there was a"
+      }
+    ],
+    "stop_reason": "max_tokens",  // finish_reason "length" -> stop_reason "max_tokens"
+    "usage": {
+      "input_tokens": 20,
+      "output_tokens": 20
+    }
+  }
+}
