@@ -1,0 +1,31 @@
+{
+  "description": "Test custom small model mapping via env variables",
+  
+  // 覆盖环境变量来测试自定义小模型映射
+  "env": {
+    "CLAUDE_PROXY_SMALL_MODEL": "custom-gpt-3.5-turbo"
+  },
+  
+  "claude_request": {
+    "model": "claude-3-haiku-20240307",
+    "max_tokens": 50,
+    "messages": [
+      {
+        "role": "user", 
+        "content": "Test custom small model mapping"
+      }
+    ]
+  },
+  
+  "expected_openai_request": {
+    "model": "custom-gpt-3.5-turbo", // haiku -> custom small model
+    "messages": [
+      {
+        "role": "user",
+        "content": "Test custom small model mapping"
+      }
+    ],
+    "max_tokens": 50,
+    "stream": false
+  }
+}

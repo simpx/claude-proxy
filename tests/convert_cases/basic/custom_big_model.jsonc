@@ -1,10 +1,9 @@
 {
-  "description": "Test custom model mapping via env variables",
+  "description": "Test custom big model mapping via env variables",
   
-  // 覆盖环境变量来测试自定义模型映射
+  // 覆盖环境变量来测试自定义大模型映射
   "env": {
-    "CLAUDE_PROXY_BIG_MODEL": "custom-gpt-4",
-    "CLAUDE_PROXY_SMALL_MODEL": "custom-gpt-3.5"
+    "CLAUDE_PROXY_BIG_MODEL": "custom-gpt-4"
   },
   
   "claude_request": {
@@ -13,7 +12,7 @@
     "messages": [
       {
         "role": "user", 
-        "content": "Test custom model mapping"
+        "content": "Test custom big model mapping"
       }
     ]
   },
@@ -23,7 +22,7 @@
     "messages": [
       {
         "role": "user",
-        "content": "Test custom model mapping"
+        "content": "Test custom big model mapping"
       }
     ],
     "max_tokens": 100,
