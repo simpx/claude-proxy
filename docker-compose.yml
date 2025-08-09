@@ -6,25 +6,25 @@ services:
     ports:
       - "8085:8085"
     environment:
-      # Required: Set your OpenAI-compatible API key
+      # Required: Set your target provider API key
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
       
       # Model configuration
-      - BIG_MODEL=${BIG_MODEL:-gpt-4o}
-      - SMALL_MODEL=${SMALL_MODEL:-gpt-4o-mini}
+      - CLAUDE_PROXY_BIG_MODEL=${CLAUDE_PROXY_BIG_MODEL:-gpt-4o}
+      - CLAUDE_PROXY_SMALL_MODEL=${CLAUDE_PROXY_SMALL_MODEL:-gpt-4o-mini}
       
       # Server settings
-      - HOST=0.0.0.0
-      - PORT=8085
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - CLAUDE_PROXY_HOST=0.0.0.0
+      - CLAUDE_PROXY_PORT=8085
+      - CLAUDE_PROXY_LOG_LEVEL=${CLAUDE_PROXY_LOG_LEVEL:-INFO}
       
       # Request settings
-      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-90}
-      - MAX_TOKENS_LIMIT=${MAX_TOKENS_LIMIT:-4096}
+      - CLAUDE_PROXY_REQUEST_TIMEOUT=${CLAUDE_PROXY_REQUEST_TIMEOUT:-90}
+      - CLAUDE_PROXY_MAX_TOKENS_LIMIT=${CLAUDE_PROXY_MAX_TOKENS_LIMIT:-4096}
       
-      # Optional: API key validation
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Optional: Proxy authentication
+      - CLAUDE_PROXY_AUTH_KEY=${CLAUDE_PROXY_AUTH_KEY}
     
     # Health check
     healthcheck:

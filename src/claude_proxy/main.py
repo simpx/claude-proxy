@@ -40,7 +40,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"   Target API: {settings.openai_base_url}")
     logger.info(f"   Big Model: {settings.big_model}")
     logger.info(f"   Small Model: {settings.small_model}")
-    logger.info(f"   API Key Validation: {'Enabled' if settings.anthropic_api_key else 'Disabled'}")
+    logger.info(f"   API Key Validation: {'Enabled' if settings.auth_key else 'Disabled'}")
+    logger.info(f"   Mode: {'Fixed API Key' if settings.openai_api_key else 'Passthrough'}")
     yield
     logger.info("👋 Claude API Proxy shutting down...")
 
@@ -63,16 +64,23 @@ app.add_middleware(
 )
 
 
-def get_provider() -> OpenAIProvider:
-    """Get the configured LLM provider."""
-    if not settings.openai_api_key:
-        raise HTTPException(
-            status_code=500,
-            detail="OPENAI_API_KEY not configured"
-        )
+def get_provider(client_api_key: Optional[str] = None) -> OpenAIProvider:
+    """Get the configured LLM provider with automatic passthrough mode."""
+    # Simple logic: if OPENAI_API_KEY is set, use it; otherwise use client's key
+    if settings.openai_api_key:
+        # Use configured API key
+        api_key = settings.openai_api_key
+    else:
+        # Passthrough mode: use client's API key
+        if not client_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="No API key available. Either set OPENAI_API_KEY or provide API key in request."
+            )
+        api_key = client_api_key
     
     return OpenAIProvider(
-        api_key=settings.openai_api_key,
+        api_key=api_key,
         base_url=settings.openai_base_url,
         timeout=settings.request_timeout
     )
@@ -87,7 +95,7 @@ async def validate_client_api_key(
     headers = dict(request.headers)
     client_key = extract_api_key_from_headers(headers)
     
-    if not validate_api_key(client_key, settings.anthropic_api_key):
+    if not validate_api_key(client_key, settings.auth_key):
         logger.warning("Invalid API key provided by client")
         raise HTTPException(
             status_code=401,
@@ -101,8 +109,7 @@ async def validate_client_api_key(
 async def create_message(
     request: ClaudeMessagesRequest,
     http_request: Request,
-    _: str = Depends(validate_client_api_key),  # API key validation
-    provider: OpenAIProvider = Depends(get_provider)
+    client_key: str = Depends(validate_client_api_key)  # API key validation
 ):
     """Handle Claude API /v1/messages requests."""
     request_id = generate_request_id()
@@ -116,6 +123,9 @@ async def create_message(
         # Check if client disconnected
         if await http_request.is_disconnected():
             raise HTTPException(status_code=499, detail="Client disconnected")
+        
+        # Create provider with client API key (automatic passthrough mode)
+        provider = get_provider(client_key)
         
         async with provider:
             if request.stream:
@@ -191,7 +201,7 @@ async def health_check():
         "version": "0.1.0",
         "config": {
             "openai_api_configured": bool(settings.openai_api_key),
-            "api_key_validation": bool(settings.anthropic_api_key),
+            "api_key_validation": bool(settings.auth_key),
             "big_model": settings.big_model,
             "small_model": settings.small_model,
             "max_tokens_limit": settings.max_tokens_limit,
@@ -200,7 +210,7 @@ async def health_check():
 
 
 @app.get("/test-connection") 
-async def test_connection(provider: OpenAIProvider = Depends(get_provider)):
+async def test_connection():
     """Test connectivity to the target API."""
     try:
         from .models.claude import ClaudeMessage, ClaudeMessagesRequest
@@ -210,6 +220,9 @@ async def test_connection(provider: OpenAIProvider = Depends(get_provider)):
             max_tokens=5,
             messages=[ClaudeMessage(role="user", content="Hello")]
         )
+        
+        # Create provider (no passthrough for test)
+        provider = get_provider()
         
         async with provider:
             await provider.complete(test_request, "test-connection")
@@ -248,7 +261,7 @@ async def root():
             "openai_base_url": settings.openai_base_url,
             "max_tokens_limit": settings.max_tokens_limit,
             "api_key_configured": bool(settings.openai_api_key),
-            "api_key_validation": bool(settings.anthropic_api_key),
+            "api_key_validation": bool(settings.auth_key),
             "big_model": settings.big_model,
             "small_model": settings.small_model,
         },

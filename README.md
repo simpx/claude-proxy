@@ -14,35 +14,36 @@ A production-ready Claude API proxy server that converts Claude API requests to 
 
 ## Quick Start
 
-### 🚀 Install and Run
-
-#### Quick Testing (Recommended)
-Perfect for local development and testing:
-
 ```bash
-# Install from PyPI
 pip install claude-proxy
 
-# Set your API configuration
+# Option 1: Fixed API Key Mode (recommended for single user)
 export OPENAI_API_KEY=sk-your-api-key
 export OPENAI_BASE_URL=https://api.openai.com/v1
+claude-proxy
 
-# Start the proxy (runs on http://localhost:8085)
+# Option 2: Passthrough Mode (for multi-user scenarios)  
+export OPENAI_BASE_URL=https://api.openai.com/v1
+# Don't set OPENAI_API_KEY - proxy will forward each client's API key
 claude-proxy
 ```
 
-#### Production Deployment
+## Production Deployment
 
 **🐳 Docker (Recommended for Production)**
 
 The easiest and most reliable way to run in production:
 
 ```bash
-# 1. Set environment variables
+# 1. Set environment variables (Fixed API Key mode)
 export OPENAI_API_KEY=sk-your-production-key
 export OPENAI_BASE_URL=https://api.openai.com/v1
+export CLAUDE_PROXY_AUTH_KEY=sk-your-own-key
 
-# 2. Start with docker-compose (recommended)
+# Or for Passthrough mode, don't set OPENAI_API_KEY and CLAUDE_PROXY_AUTH_KEY:
+# export OPENAI_BASE_URL=https://api.openai.com/v1
+
+# 2. Start with docker-compose
 docker-compose up -d
 
 # Or build and run manually
@@ -58,11 +59,14 @@ For environments where Docker isn't available:
 # Install with production dependencies (includes Gunicorn)
 pip install claude-proxy[production]
 
-# Set your configuration
+# Set your configuration (Fixed API Key mode)
 export OPENAI_API_KEY=sk-your-production-key
 export OPENAI_BASE_URL=https://api.openai.com/v1
+export CLAUDE_PROXY_AUTH_KEY=sk-your-own-key
 
-# Run with Gunicorn + Uvicorn workers (production-ready)
+# Or for Passthrough mode, don't set OPENAI_API_KEY and CLAUDE_PROXY_AUTH_KEY
+
+# Run with Gunicorn + Uvicorn workers
 gunicorn claude_proxy.main:app \
   --workers 4 \
   --worker-class uvicorn.workers.UvicornWorker \
@@ -79,69 +83,78 @@ gunicorn claude_proxy.main:app \
 - **Resource limits**: Configurable CPU/memory constraints
 - **Auto-restart**: Automatic recovery from failures
 
+**API Endpoints**
+
+- `POST /v1/messages` - Chat completions (Claude API compatible)  
+- `POST /v1/messages/count_tokens` - Token counting
+- `GET /health` - Health check
+- `GET /test-connection` - Test target API connectivity  
+- `GET /` - Service information
+
 That's it! The proxy is ready to use with Claude Code.
 
 ## Supported Providers
 
-### OpenAI (Default)
+### OpenAI
 ```bash
-export OPENAI_API_KEY=sk-proj-xxx
 export OPENAI_BASE_URL=https://api.openai.com/v1
-export BIG_MODEL=gpt-4o
-export SMALL_MODEL=gpt-4o-mini
+export CLAUDE_PROXY_BIG_MODEL=gpt-4o
+export CLAUDE_PROXY_SMALL_MODEL=gpt-4o-mini
 claude-proxy
 ```
 
 ### Alibaba Cloud DashScope
 ```bash
-export OPENAI_API_KEY=sk-xxx
 export OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-export BIG_MODEL=qwen-plus
-export SMALL_MODEL=qwen-plus
+export CLAUDE_PROXY_BIG_MODEL=qwen3-coder-plus
+export CLAUDE_PROXY_SMALL_MODEL=qwen3-coder-flash
 claude-proxy
 ```
 
 ### Azure OpenAI
 ```bash
-export OPENAI_API_KEY=your-azure-key
 export OPENAI_BASE_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment
-export BIG_MODEL=gpt-4
-export SMALL_MODEL=gpt-35-turbo
+export CLAUDE_PROXY_BIG_MODEL=gpt-4
+export CLAUDE_PROXY_SMALL_MODEL=gpt-35-turbo
 claude-proxy
 ```
 
 ### Local Ollama
 ```bash
-export OPENAI_API_KEY=dummy-key
 export OPENAI_BASE_URL=http://localhost:11434/v1
-export BIG_MODEL=llama3.1:70b
-export SMALL_MODEL=llama3.1:8b
-claude-proxy
-```
-
-### Any OpenAI-Compatible API
-```bash
-export OPENAI_API_KEY=your-api-key
-export OPENAI_BASE_URL=https://your-api-endpoint/v1
-export BIG_MODEL=your-big-model
-export SMALL_MODEL=your-small-model
+export CLAUDE_PROXY_BIG_MODEL=llama3.1:70b
+export CLAUDE_PROXY_SMALL_MODEL=llama3.1:8b
 claude-proxy
 ```
 
 ## Environment Variables
 
-### Required
-- `OPENAI_API_KEY` - API key for your target provider
-
-### Optional  
+- `OPENAI_API_KEY` - API key for your target provider (optional - enables Fixed API Key mode if set)
 - `OPENAI_BASE_URL` - API endpoint URL (default: `https://api.openai.com/v1`)
-- `BIG_MODEL` - Model for Claude Sonnet/Opus requests (default: `gpt-4o`)
-- `SMALL_MODEL` - Model for Claude Haiku requests (default: `gpt-4o-mini`)
-- `HOST` - Server host (default: `0.0.0.0`)
-- `PORT` - Server port (default: `8085`)
-- `LOG_LEVEL` - Logging level (default: `INFO`)
-- `REQUEST_TIMEOUT` - Request timeout in seconds (default: `90`)
-- `ANTHROPIC_API_KEY` - Enable API key validation (optional)
+
+**Mode Selection:**
+- **If `OPENAI_API_KEY` is set**: Fixed API Key mode - proxy uses this key for all requests
+- **If `OPENAI_API_KEY` is NOT set**: Passthrough mode - proxy forwards each client's API key
+
+- `CLAUDE_PROXY_BIG_MODEL` - Model for Claude Sonnet/Opus requests (default: `gpt-4o`)
+- `CLAUDE_PROXY_SMALL_MODEL` - Model for Claude Haiku requests (default: `gpt-4o-mini`)
+- `CLAUDE_PROXY_HOST` - Server host (default: `0.0.0.0`)
+- `CLAUDE_PROXY_PORT` - Server port (default: `8085`)
+- `CLAUDE_PROXY_LOG_LEVEL` - Logging level (default: `INFO`)
+- `CLAUDE_PROXY_REQUEST_TIMEOUT` - Request timeout in seconds (default: `90`)
+- `CLAUDE_PROXY_AUTH_KEY` - Required API key for proxy access validation (optional, only for Fixed API Key mode)
+
+## Authentication & Security
+
+### Fixed API Key Mode
+- **Recommended**: Set `CLAUDE_PROXY_AUTH_KEY` to validate client access
+- All requests to target provider use the same `OPENAI_API_KEY`
+- Clients provide any API key to the proxy (validated against `CLAUDE_PROXY_AUTH_KEY`)
+
+### Passthrough Mode  
+- **Don't set** `CLAUDE_PROXY_AUTH_KEY` - each client uses their own API key
+- Client's API key is forwarded directly to the target provider
+- No additional proxy-level authentication needed
 
 ## Model Mapping
 
@@ -149,93 +162,38 @@ The proxy automatically maps Claude models to your configured models:
 
 | Claude Request | Environment Variable | Default Value |
 |---------------|---------------------|---------------|
-| `claude-3-haiku*` | `SMALL_MODEL` | `gpt-4o-mini` |
-| `claude-3-sonnet*` | `BIG_MODEL` | `gpt-4o` |
-| `claude-3-opus*` | `BIG_MODEL` | `gpt-4o` |
-| `claude-sonnet-4*` | `BIG_MODEL` | `gpt-4o` |
-
-## Using with Claude Code
-
-Set the proxy as your Claude endpoint:
-
-```bash
-export ANTHROPIC_BASE_URL=http://localhost:8085
-export ANTHROPIC_API_KEY=any-value
-
-# Use Claude Code as normal
-claude
-```
+| `claude-3-haiku*` | `CLAUDE_PROXY_SMALL_MODEL` | `gpt-4o-mini` |
+| `claude-3-sonnet*` | `CLAUDE_PROXY_BIG_MODEL` | `gpt-4o` |
+| `claude-3-opus*` | `CLAUDE_PROXY_BIG_MODEL` | `gpt-4o` |
+| `claude-sonnet-4*` | `CLAUDE_PROXY_BIG_MODEL` | `gpt-4o` |
 
 ## Configuration Examples
 
-### Create .env file
-```bash
-# Copy example configuration
-cp .env.example .env
-
-# Edit your configuration  
-nano .env
-```
-
 ### Example .env for OpenAI
 ```env
-OPENAI_API_KEY=sk-proj-xxx
 OPENAI_BASE_URL=https://api.openai.com/v1
-BIG_MODEL=gpt-4o
-SMALL_MODEL=gpt-4o-mini
-LOG_LEVEL=INFO
+CLAUDE_PROXY_BIG_MODEL=gpt-4o
+CLAUDE_PROXY_SMALL_MODEL=gpt-4o-mini
+CLAUDE_PROXY_LOG_LEVEL=INFO
 ```
 
 ### Example .env for DashScope
 ```env
-OPENAI_API_KEY=sk-xxx
 OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1  
-BIG_MODEL=qwen3-coder-flash
-SMALL_MODEL=qwen3-coder-flash
-LOG_LEVEL=INFO
+CLAUDE_PROXY_BIG_MODEL=qwen3-coder-plus
+CLAUDE_PROXY_SMALL_MODEL=qwen3-coder-flash
+CLAUDE_PROXY_LOG_LEVEL=INFO
 ```
 
-## Production Deployment
-
-### Basic Production
-```bash
-# Install with production dependencies
-pip install claude-proxy[production]
-
-# Set production environment
-export OPENAI_API_KEY=your-production-key
-export LOG_LEVEL=WARNING
-export REQUEST_TIMEOUT=60
-
-# Run with more workers
-gunicorn claude_proxy.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8085
+### Example .env for Fixed API Key Mode
+```env
+OPENAI_API_KEY=sk-your-production-key # enables Fixed API Key Mode
+CLAUDE_PROXY_AUTH_KEY=sk-your-own-key # optional
+OPENAI_BASE_URL=https://api.openai.com/v1
+CLAUDE_PROXY_BIG_MODEL=gpt-4o
+CLAUDE_PROXY_SMALL_MODEL=gpt-4o-mini
+CLAUDE_PROXY_LOG_LEVEL=INFO
 ```
-
-### Docker Deployment
-```bash
-# Using docker-compose (recommended)
-docker-compose up -d
-
-# Or build and run manually
-docker build -t claude-proxy .
-docker run -p 8085:8085 --env-file .env claude-proxy
-```
-
-### Behind Reverse Proxy
-```bash
-# Run on localhost for nginx/traefik
-export HOST=127.0.0.1
-export PORT=8085
-claude-proxy
-```
-
-## API Endpoints
-
-- `POST /v1/messages` - Chat completions (Claude API compatible)  
-- `POST /v1/messages/count_tokens` - Token counting
-- `GET /health` - Health check
-- `GET /test-connection` - Test target API connectivity  
-- `GET /` - Service information
 
 ## Development
 
@@ -250,7 +208,7 @@ uv sync
 
 # Set development configuration
 cp .env.example .env
-nano .env
+vim .env
 
 # Run in development
 uv run claude-proxy
@@ -265,7 +223,7 @@ uv run pytest
 uv run pytest --cov=claude_proxy --cov-report=html
 
 # Test specific functionality
-uv run pytest tests/test_app.py -v
+uv run pytest -v
 ```
 
 ### Code Quality
@@ -300,50 +258,7 @@ curl http://localhost:8085/test-connection
 ### Common Issues
 - **404 Not Found**: Check your `OPENAI_BASE_URL` and model names
 - **401 Unauthorized**: Verify your `OPENAI_API_KEY` is valid
-- **Model not found**: Ensure `BIG_MODEL` and `SMALL_MODEL` exist in your provider
-
-## Examples
-
-### Basic Chat Request
-```bash
-curl -X POST http://localhost:8085/v1/messages \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-3-5-sonnet-20241022",
-    "max_tokens": 100,
-    "messages": [
-      {"role": "user", "content": "Hello, world!"}
-    ]
-  }'
-```
-
-### With System Prompt  
-```bash
-curl -X POST http://localhost:8085/v1/messages \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-3-haiku",
-    "max_tokens": 100,
-    "system": "You are a helpful assistant.",
-    "messages": [
-      {"role": "user", "content": "Explain quantum computing"}
-    ]
-  }'
-```
-
-### Streaming Request
-```bash
-curl -X POST http://localhost:8085/v1/messages \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-3-sonnet",
-    "max_tokens": 100,
-    "stream": true,
-    "messages": [
-      {"role": "user", "content": "Tell me a story"}
-    ]
-  }'
-```
+- **Model not found**: Ensure `CLAUDE_PROXY_BIG_MODEL` and `CLAUDE_PROXY_SMALL_MODEL` exist in your provider
 
 ## License
 
