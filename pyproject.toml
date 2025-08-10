@@ -23,6 +23,7 @@ dev = [
     "black>=23.10.0",
     "ruff>=0.1.4",
     "mypy>=1.7.0",
+    "anthropic>=0.34.0",
 ]
 production = [
     "gunicorn>=21.0.0",
