@@ -49,8 +49,3 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
-
-# Poetry
-poetry.lock# Test scripts
-a.sh
-test_api.sh
