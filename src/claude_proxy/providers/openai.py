@@ -100,12 +100,11 @@ class OpenAIProvider(BaseProvider):
         if request.stop_sequences:
             openai_request["stop"] = request.stop_sequences
         
-        # Handle tools - filter out potentially incompatible tools for now
-        # TODO: Add proper tool format conversion when needed
+        # Handle tools
         if request.tools and self._should_include_tools(request.tools):
             openai_request["tools"] = self._convert_tools(request.tools)
         if request.tool_choice and request.tools:
-            openai_request["tool_choice"] = request.tool_choice
+            openai_request["tool_choice"] = self._convert_tool_choice(request.tool_choice)
             
         return openai_request
     
@@ -216,6 +215,33 @@ class OpenAIProvider(BaseProvider):
         
         logging.debug(f"Successfully converted {len(tools)} Claude tools to {len(openai_tools)} OpenAI tools")
         return openai_tools
+    
+    def _convert_tool_choice(self, tool_choice: Dict[str, Any]) -> Union[str, Dict[str, Any]]:
+        """Convert Claude tool_choice format to OpenAI format."""
+        if not tool_choice:
+            return "auto"
+        
+        # Claude format: {"type": "auto"} or {"type": "tool", "name": "function_name"}
+        # OpenAI format: "auto", "none", or {"type": "function", "function": {"name": "function_name"}}
+        
+        if isinstance(tool_choice, dict):
+            choice_type = tool_choice.get("type", "auto")
+            
+            if choice_type == "auto":
+                return "auto"
+            elif choice_type == "none":
+                return "none"
+            elif choice_type == "tool" and "name" in tool_choice:
+                # Convert specific tool choice
+                return {
+                    "type": "function",
+                    "function": {
+                        "name": tool_choice["name"]
+                    }
+                }
+        
+        # Default to auto
+        return "auto"
     
     def _convert_finish_reason(self, openai_reason: Optional[str]) -> Optional[str]:
         """Convert OpenAI finish reason to Claude format."""
