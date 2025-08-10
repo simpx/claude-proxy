@@ -13,6 +13,8 @@ from ..models.claude import (
     ClaudeMessagesRequest,
     ClaudeMessagesResponse,
     ClaudeTextContent,
+    ClaudeToolUseContent,
+    ClaudeToolResultContent,
     ClaudeUsage,
 )
 from ..models.openai import OpenAIMessage, OpenAIMessagesRequest
@@ -118,17 +120,23 @@ class OpenAIProvider(BaseProvider):
         
         # Convert content
         content = []
-        if message.get("content"):
+        # Only add text content if it's not empty
+        if message.get("content") and message["content"].strip():
             content.append(ClaudeTextContent(text=message["content"]))
         
         # Handle tool calls
         if tool_calls := message.get("tool_calls"):
             for tool_call in tool_calls:
+                try:
+                    arguments = json.loads(tool_call["function"]["arguments"])
+                except json.JSONDecodeError:
+                    arguments = {}
+                    
                 content.append({
                     "type": "tool_use",
                     "id": tool_call["id"],
                     "name": tool_call["function"]["name"],
-                    "input": json.loads(tool_call["function"]["arguments"])
+                    "input": arguments
                 })
         
         # Convert usage
@@ -159,8 +167,7 @@ class OpenAIProvider(BaseProvider):
         if not tools:
             return False
         
-        # Debug: Log the actual tools format to understand the issue
-        logging.info(f"Claude Code sent {len(tools)} tools - attempting to convert to OpenAI format")
+        logging.debug(f"Converting {len(tools)} Claude tools to OpenAI format")
         
         # Always try to include tools, but convert them properly
         return True
@@ -207,7 +214,7 @@ class OpenAIProvider(BaseProvider):
             
             openai_tools.append(openai_tool)
         
-        logging.info(f"Converted {len(tools)} Claude tools to {len(openai_tools)} OpenAI tools")
+        logging.debug(f"Successfully converted {len(tools)} Claude tools to {len(openai_tools)} OpenAI tools")
         return openai_tools
     
     def _convert_finish_reason(self, openai_reason: Optional[str]) -> Optional[str]:
@@ -290,6 +297,10 @@ class OpenAIProvider(BaseProvider):
                 response.raise_for_status()
                 
                 input_tokens = 0
+                tool_calls_accumulator = {}  # Track tool calls across chunks
+                has_text_content = False
+                has_tool_content = False
+                text_block_started = False
                 
                 # Send initial message_start event
                 start_event = {
@@ -306,17 +317,6 @@ class OpenAIProvider(BaseProvider):
                     }
                 }
                 yield f"event: message_start\ndata: {json.dumps(start_event)}\n\n"
-                
-                # Send content_block_start event
-                block_start_event = {
-                    "type": "content_block_start",
-                    "index": 0,
-                    "content_block": {
-                        "type": "text",
-                        "text": ""
-                    }
-                }
-                yield f"event: content_block_start\ndata: {json.dumps(block_start_event)}\n\n"
                 async for line in response.aiter_lines():
                     logging.debug(f"Streaming line received: {line}")
                     if line.startswith("data: "):
@@ -344,7 +344,22 @@ class OpenAIProvider(BaseProvider):
                             if chunk.get("usage") and isinstance(chunk["usage"], dict):
                                 input_tokens = chunk["usage"].get("prompt_tokens", input_tokens)
                             
+                            # Handle text content deltas
                             if content := delta.get("content"):
+                                if not text_block_started:
+                                    # Send text content_block_start event
+                                    block_start_event = {
+                                        "type": "content_block_start",
+                                        "index": 0,
+                                        "content_block": {
+                                            "type": "text",
+                                            "text": ""
+                                        }
+                                    }
+                                    yield f"event: content_block_start\ndata: {json.dumps(block_start_event)}\n\n"
+                                    text_block_started = True
+                                    
+                                has_text_content = True
                                 delta_event = {
                                     "type": "content_block_delta",
                                     "index": 0,
@@ -355,16 +370,86 @@ class OpenAIProvider(BaseProvider):
                                 }
                                 yield f"event: content_block_delta\ndata: {json.dumps(delta_event)}\n\n"
                             
+                            # Handle tool calls in streaming
+                            if tool_calls := delta.get("tool_calls"):
+                                for tool_call in tool_calls:
+                                    call_index = tool_call.get("index", 0)
+                                    call_id = tool_call.get("id", "")
+                                    
+                                    # Initialize tool call if we haven't seen it
+                                    if call_index not in tool_calls_accumulator:
+                                        tool_calls_accumulator[call_index] = {
+                                            "id": call_id,
+                                            "name": "",
+                                            "arguments": "",
+                                            "started": False
+                                        }
+                                        
+                                    acc = tool_calls_accumulator[call_index]
+                                    
+                                    # Update ID if provided
+                                    if call_id:
+                                        acc["id"] = call_id
+                                    
+                                    # Handle function info
+                                    if func := tool_call.get("function"):
+                                        # Update function name if provided
+                                        if name := func.get("name"):
+                                            acc["name"] = name
+                                            
+                                        # Update arguments if provided
+                                        if args := func.get("arguments"):
+                                            acc["arguments"] += args
+                                    
+                                    # Send content_block_start if this is the first time we see this tool call with a name
+                                    if acc["name"] and not acc["started"]:
+                                        content_index = 1 if has_text_content else 0
+                                        tool_start_event = {
+                                            "type": "content_block_start",
+                                            "index": content_index,
+                                            "content_block": {
+                                                "type": "tool_use",
+                                                "id": acc["id"],
+                                                "name": acc["name"],
+                                                "input": {}
+                                            }
+                                        }
+                                        yield f"event: content_block_start\ndata: {json.dumps(tool_start_event)}\n\n"
+                                        acc["started"] = True
+                                        has_tool_content = True
+                                        
+                                    # Send arguments delta if we have new arguments
+                                    if func and func.get("arguments"):
+                                        content_index = 1 if has_text_content else 0
+                                        tool_delta_event = {
+                                            "type": "content_block_delta",
+                                            "index": content_index,
+                                            "delta": {
+                                                "type": "input_json_delta",
+                                                "partial_json": func["arguments"]
+                                            }
+                                        }
+                                        yield f"event: content_block_delta\ndata: {json.dumps(tool_delta_event)}\n\n"
+                            
                             if choice and choice.get("finish_reason"):
                                 usage_info = chunk.get("usage", {}) if chunk.get("usage") and isinstance(chunk.get("usage"), dict) else {}
                                 output_tokens = usage_info.get("completion_tokens", 0)
                                 
-                                # Send content_block_stop event
-                                block_stop_event = {
-                                    "type": "content_block_stop",
-                                    "index": 0
-                                }
-                                yield f"event: content_block_stop\ndata: {json.dumps(block_stop_event)}\n\n"
+                                # Send content_block_stop events for any active blocks
+                                if has_tool_content:
+                                    content_index = 1 if has_text_content else 0
+                                    tool_stop_event = {
+                                        "type": "content_block_stop",
+                                        "index": content_index
+                                    }
+                                    yield f"event: content_block_stop\ndata: {json.dumps(tool_stop_event)}\n\n"
+                                
+                                if has_text_content:
+                                    block_stop_event = {
+                                        "type": "content_block_stop",
+                                        "index": 0
+                                    }
+                                    yield f"event: content_block_stop\ndata: {json.dumps(block_stop_event)}\n\n"
                                 
                                 # Send message_delta event
                                 stop_event = {

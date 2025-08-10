@@ -16,10 +16,28 @@ class ClaudeImageContent(BaseModel):
     source: Dict[str, Any]
 
 
+class ClaudeToolUseContent(BaseModel):
+    """Claude tool use content block."""
+    type: str = "tool_use"
+    id: str
+    name: str
+    input: Dict[str, Any]
+    cache_control: Optional[Dict[str, Any]] = None
+
+
+class ClaudeToolResultContent(BaseModel):
+    """Claude tool result content block."""
+    type: str = "tool_result"
+    tool_use_id: str
+    content: Optional[Union[str, List[Dict[str, Any]]]] = None
+    is_error: Optional[bool] = None
+    cache_control: Optional[Dict[str, Any]] = None
+
+
 class ClaudeMessage(BaseModel):
     """Claude API message format."""
     role: str = Field(..., description="Message role: user, assistant")
-    content: Union[str, List[Union[ClaudeTextContent, ClaudeImageContent]]] = Field(
+    content: Union[str, List[Union[ClaudeTextContent, ClaudeImageContent, ClaudeToolUseContent, ClaudeToolResultContent]]] = Field(
         ..., description="Message content"
     )
 
