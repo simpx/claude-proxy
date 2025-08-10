@@ -30,7 +30,7 @@ class ConversionTestCase:
 class ConversionCaseLoader:
     """测试案例加载器"""
     
-    def __init__(self, cases_dir: str = "tests/convert_cases"):
+    def __init__(self, cases_dir: str = "tests/unit/convert_cases"):
         self.cases_dir = Path(cases_dir)
         self.cases: List[ConversionTestCase] = []
     

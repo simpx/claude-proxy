@@ -16,7 +16,7 @@ sys.path.insert(0, str(project_root))
 
 from src.claude_proxy.providers.openai import OpenAIProvider
 from src.claude_proxy.models.claude import ClaudeMessagesRequest
-from tests.conversion_runner import ConversionCaseLoader, ConversionTestValidator
+from .conversion_runner import ConversionCaseLoader, ConversionTestValidator
 
 
 class TestConvertCases:

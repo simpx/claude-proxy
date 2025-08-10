@@ -4,7 +4,6 @@ Tests the actual authentication functions in main.py and utils.py.
 """
 
 import pytest
-import pytest_asyncio
 from unittest.mock import Mock, patch
 from fastapi import HTTPException
 from src.claude_proxy.utils import validate_api_key, extract_api_key_from_headers
