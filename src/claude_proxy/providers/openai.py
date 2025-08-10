@@ -269,7 +269,17 @@ class OpenAIProvider(BaseProvider):
                         try:
                             chunk = json.loads(data)
                             logging.debug(f"Parsed chunk: {chunk}")
+                            
+                            # Check if chunk has choices array
+                            if not chunk.get("choices") or not isinstance(chunk["choices"], list):
+                                logging.debug("Chunk has no choices array, skipping")
+                                continue
+                                
                             choice = chunk["choices"][0]
+                            if not choice:
+                                logging.debug("Choice is None, skipping")
+                                continue
+                                
                             delta = choice.get("delta", {})
                             
                             if chunk.get("usage"):

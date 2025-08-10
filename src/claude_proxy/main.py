@@ -139,21 +139,27 @@ async def create_message(
         # Create provider with client API key (automatic passthrough mode)
         provider = get_provider(client_key)
         
-        async with provider:
-            if request.stream:
-                # Streaming response
-                return StreamingResponse(
-                    provider.stream_complete(request, request_id),
-                    media_type="text/event-stream",
-                    headers={
-                        "Cache-Control": "no-cache",
-                        "Connection": "keep-alive",
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Headers": "*",
-                    }
-                )
-            else:
-                # Non-streaming response
+        if request.stream:
+            # For streaming, we need to keep the provider open during the entire response
+            # The provider will be closed when the generator is exhausted
+            async def stream_with_cleanup():
+                async with provider:
+                    async for chunk in provider.stream_complete(request, request_id):
+                        yield chunk
+            
+            return StreamingResponse(
+                stream_with_cleanup(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "*",
+                }
+            )
+        else:
+            # Non-streaming response
+            async with provider:
                 response = await provider.complete(request, request_id)
                 logger.info(f"Request {request_id} completed successfully")
                 return response
