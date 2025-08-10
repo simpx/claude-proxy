@@ -6,7 +6,7 @@ Tests different authentication modes and scenarios end-to-end.
 import pytest
 import httpx
 
-from ..conftest import IntegrationTestServer, get_test_env_vars
+from ..conftest import IntegrationTestServer, get_test_env_vars, get_test_env_vars_no_dotenv
 
 
 @pytest.mark.integration
@@ -153,28 +153,48 @@ class TestPassthroughModeAuth:
     @pytest.fixture
     def server_passthrough_no_auth(self):
         """Server in Passthrough Mode with no auth key required."""
-        env_vars = get_test_env_vars()
+        # Save the original API key before we modify the environment
+        from pathlib import Path
+        from dotenv import dotenv_values
+        
+        project_root = Path(__file__).parent.parent.parent.parent
+        env_file = project_root / '.env'
+        original_api_key = None
+        
+        if env_file.exists():
+            original_env = dotenv_values(env_file)
+            original_api_key = original_env.get('OPENAI_API_KEY')
+        
+        # Use version that doesn't auto-load .env to avoid re-loading API key
+        env_vars = get_test_env_vars_no_dotenv()
         server = IntegrationTestServer(
-            OPENAI_API_KEY="",  # Empty = Passthrough Mode
+            OPENAI_API_KEY=None,  # Explicitly delete OPENAI_API_KEY = Passthrough Mode
             OPENAI_BASE_URL=env_vars['OPENAI_BASE_URL'],
             CLAUDE_PROXY_BIG_MODEL=env_vars['CLAUDE_PROXY_BIG_MODEL'],
             CLAUDE_PROXY_SMALL_MODEL=env_vars['CLAUDE_PROXY_SMALL_MODEL'],
             # Note: CLAUDE_PROXY_AUTH_KEY is ignored in Passthrough Mode
         )
         server.start()
+        
+        # Add the original API key to the server object for tests to use
+        server.original_api_key = original_api_key
+        
         yield server
         server.stop()
 
     @pytest.mark.asyncio
     async def test_passthrough_mode_with_valid_client_key(self, server_passthrough_no_auth):
         """Test Passthrough Mode with valid client API key."""
-        env_vars = get_test_env_vars()
+        # Use the original API key saved by the fixture
+        client_api_key = server_passthrough_no_auth.original_api_key
+        if not client_api_key:
+            pytest.skip("No API key available for passthrough mode test")
             
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"http://{server_passthrough_no_auth.host}:{server_passthrough_no_auth.actual_port}/v1/messages",
                 headers={
-                    "Authorization": f"Bearer {env_vars['OPENAI_API_KEY']}",
+                    "Authorization": f"Bearer {client_api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
@@ -229,13 +249,16 @@ class TestPassthroughModeAuth:
     @pytest.mark.asyncio
     async def test_passthrough_mode_x_api_key_forwarded(self, server_passthrough_no_auth):
         """Test that x-api-key is forwarded as API key in Passthrough Mode."""
-        env_vars = get_test_env_vars()
+        # Use the original API key saved by the fixture
+        client_api_key = server_passthrough_no_auth.original_api_key
+        if not client_api_key:
+            pytest.skip("No API key available for passthrough mode test")
             
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"http://{server_passthrough_no_auth.host}:{server_passthrough_no_auth.actual_port}/v1/messages",
                 headers={
-                    "x-api-key": env_vars['OPENAI_API_KEY'],  # x-api-key forwarded as API key
+                    "x-api-key": client_api_key,  # x-api-key forwarded as API key
                     "Content-Type": "application/json"
                 },
                 json={

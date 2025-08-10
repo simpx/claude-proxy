@@ -22,9 +22,33 @@ class IntegrationTestServer:
         self.server_thread = None
         self.env_overrides = env_overrides
         self.original_env = {}
+        self.temp_env_file = None
+        self.original_env_file_content = None
         
     def start(self):
         """Start the test server with custom environment."""
+        from pathlib import Path
+        
+        # Handle .env file if we need to override OPENAI_API_KEY
+        project_root = Path(__file__).parent.parent.parent
+        env_file = project_root / '.env'
+        
+        if 'OPENAI_API_KEY' in self.env_overrides and self.env_overrides['OPENAI_API_KEY'] is None:
+            # We need to create a temporary .env without OPENAI_API_KEY
+            if env_file.exists():
+                # Read original content
+                self.original_env_file_content = env_file.read_text()
+                
+                # Create new content without OPENAI_API_KEY
+                lines = []
+                for line in self.original_env_file_content.splitlines():
+                    if not line.strip().startswith('OPENAI_API_KEY='):
+                        lines.append(line)
+                
+                # Write temporary .env
+                env_file.write_text('\n'.join(lines))
+                self.temp_env_file = env_file
+        
         # Apply environment overrides
         for key, value in self.env_overrides.items():
             self.original_env[key] = os.environ.get(key)
@@ -92,6 +116,10 @@ class IntegrationTestServer:
         if self.server:
             self.server.should_exit = True
         
+        # Restore original .env file
+        if self.temp_env_file and self.original_env_file_content is not None:
+            self.temp_env_file.write_text(self.original_env_file_content)
+        
         # Restore original environment
         for key, original_value in self.original_env.items():
             if original_value is None:
@@ -114,6 +142,18 @@ def get_test_env_vars():
     
     if env_file.exists():
         load_dotenv(env_file, override=False)  # Don't override existing env vars
+    
+    return {
+        'OPENAI_API_KEY': os.environ.get('OPENAI_API_KEY'),
+        'OPENAI_BASE_URL': os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'CLAUDE_PROXY_BIG_MODEL': os.environ.get('CLAUDE_PROXY_BIG_MODEL', 'gpt-4o'),
+        'CLAUDE_PROXY_SMALL_MODEL': os.environ.get('CLAUDE_PROXY_SMALL_MODEL', 'gpt-4o-mini'),
+    }
+
+
+def get_test_env_vars_no_dotenv():
+    """Get test environment variables from current environment only (no .env file loading)."""
+    import os
     
     return {
         'OPENAI_API_KEY': os.environ.get('OPENAI_API_KEY'),
