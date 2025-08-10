@@ -334,9 +334,9 @@ class OpenAIProvider(BaseProvider):
                                 logging.debug("Chunk has no choices array, skipping")
                                 continue
                                 
-                            choice = chunk["choices"][0]
+                            choice = chunk["choices"][0] if len(chunk["choices"]) > 0 else None
                             if not choice:
-                                logging.debug("Choice is None, skipping")
+                                logging.debug("Choice is None or empty, skipping")
                                 continue
                                 
                             delta = choice.get("delta", {})
@@ -370,7 +370,7 @@ class OpenAIProvider(BaseProvider):
                                 stop_event = {
                                     "type": "message_delta",
                                     "delta": {
-                                        "stop_reason": self._convert_finish_reason(choice["finish_reason"]),
+                                        "stop_reason": self._convert_finish_reason(choice.get("finish_reason")),
                                         "stop_sequence": None
                                     },
                                     "usage": {
