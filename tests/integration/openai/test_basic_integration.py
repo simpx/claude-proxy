@@ -3,82 +3,25 @@ Basic integration test for claude-proxy with OpenAI API.
 Tests the full flow: start proxy server -> make Claude API calls -> verify responses.
 """
 
-import asyncio
 import os
-import threading
-import time
-from typing import Optional
-
 import pytest
-import uvicorn
 from anthropic import Anthropic
 from anthropic.types import Message
 
-from src.claude_proxy.main import app
-from src.claude_proxy.config import get_settings
-
-
-class ProxyTestServer:
-    """Test server manager for integration tests."""
-    
-    def __init__(self, host: str = "127.0.0.1", port: int = 0):
-        self.host = host
-        self.requested_port = port
-        self.actual_port = None
-        self.server = None
-        self.server_thread = None
-        
-    def start(self):
-        """Start the test server in a separate thread."""
-        import socket
-        
-        # If port is 0, find an available port first
-        if self.requested_port == 0:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.bind(('', 0))
-            self.actual_port = sock.getsockname()[1]
-            sock.close()
-        else:
-            self.actual_port = self.requested_port
-        
-        def run_server():
-            config = uvicorn.Config(
-                app,
-                host=self.host,
-                port=self.actual_port,
-                log_level="warning"  # Reduce log noise in tests
-            )
-            self.server = uvicorn.Server(config)
-            self.server.run()
-        
-        self.server_thread = threading.Thread(target=run_server, daemon=True)
-        self.server_thread.start()
-        
-        # Wait for server to start
-        time.sleep(1)  # Give server initial time to start
-        max_wait = 15
-        for i in range(max_wait * 10):
-            try:
-                import httpx
-                response = httpx.get(f"http://{self.host}:{self.actual_port}/health", timeout=2.0)
-                if response.status_code == 200:
-                    break
-            except Exception as e:
-                pass
-            time.sleep(0.1)
-        else:
-            raise TimeoutError(f"Server failed to start within {max_wait} seconds on port {self.actual_port}")
-    
-    def stop(self):
-        """Stop the test server."""
-        if self.server:
-            self.server.should_exit = True
+from ..conftest import IntegrationTestServer, get_test_env_vars
 
 
 @pytest.fixture(scope="module")
 def test_server():
     """Fixture to start and stop test server for the entire module."""
-    server = ProxyTestServer()
+    env_vars = get_test_env_vars()
+    server = IntegrationTestServer(
+        OPENAI_API_KEY=env_vars['OPENAI_API_KEY'],
+        OPENAI_BASE_URL=env_vars['OPENAI_BASE_URL'],
+        CLAUDE_PROXY_BIG_MODEL=env_vars['CLAUDE_PROXY_BIG_MODEL'],
+        CLAUDE_PROXY_SMALL_MODEL=env_vars['CLAUDE_PROXY_SMALL_MODEL'],
+        CLAUDE_PROXY_AUTH_KEY=None  # No auth for basic tests
+    )
     server.start()
     yield server
     server.stop()
@@ -87,8 +30,8 @@ def test_server():
 @pytest.fixture
 def anthropic_client(test_server):
     """Fixture to create Anthropic client pointing to our test server."""
-    # Use environment variable for API key, or skip test
-    api_key = os.getenv("OPENAI_API_KEY")
+    env_vars = get_test_env_vars()
+    api_key = env_vars['OPENAI_API_KEY']
     if not api_key:
         pytest.skip("OPENAI_API_KEY not set - skipping integration test")
     

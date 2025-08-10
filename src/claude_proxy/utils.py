@@ -27,12 +27,33 @@ def get_current_timestamp() -> str:
 
 
 def extract_api_key_from_headers(headers: Dict[str, Any]) -> Optional[str]:
-    """Extract API key from request headers."""
-    # Check x-api-key header
+    """
+    Extract API key from request headers for forwarding to provider.
+    Priority: x-api-key > Authorization Bearer
+    """
+    # Check x-api-key header (Claude style)
     if api_key := headers.get("x-api-key"):
         return api_key
     
-    # Check Authorization header
+    # Check Authorization header (OpenAI style)
+    auth_header = headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header.replace("Bearer ", "")
+    
+    return None
+
+
+def extract_proxy_auth_key(headers: Dict[str, Any]) -> Optional[str]:
+    """
+    Extract proxy authentication key from request headers.
+    This is only used for proxy access control (Fixed API Key Mode only).
+    Priority: x-api-key > Authorization Bearer
+    """
+    # Check x-api-key header first
+    if auth_key := headers.get("x-api-key"):
+        return auth_key
+    
+    # Fallback to Authorization header
     auth_header = headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
         return auth_header.replace("Bearer ", "")

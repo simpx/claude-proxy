@@ -1,6 +1,5 @@
 """Configuration management for Claude API Proxy."""
 
-import os
 from typing import Dict, Optional
 try:
     from pydantic_settings import BaseSettings
@@ -64,4 +63,15 @@ def get_settings() -> Settings:
     global _settings
     if _settings is None:
         _settings = Settings()
+        
+        # Validate configuration: Passthrough mode doesn't support auth_key
+        if not _settings.openai_api_key and _settings.auth_key:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "CLAUDE_PROXY_AUTH_KEY is set but OPENAI_API_KEY is not configured (Passthrough Mode). "
+                "Proxy authentication is not supported in Passthrough Mode. Ignoring CLAUDE_PROXY_AUTH_KEY."
+            )
+            _settings.auth_key = None
+            
     return _settings

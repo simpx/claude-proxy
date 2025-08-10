@@ -6,7 +6,7 @@ Tests the actual authentication functions in main.py and utils.py.
 import pytest
 from unittest.mock import Mock, patch
 from fastapi import HTTPException
-from src.claude_proxy.utils import validate_api_key, extract_api_key_from_headers
+from src.claude_proxy.utils import validate_api_key, extract_api_key_from_headers, extract_proxy_auth_key
 import importlib
 main_module = importlib.import_module('src.claude_proxy.main')
 from src.claude_proxy.main import validate_client_api_key, get_provider
@@ -69,67 +69,96 @@ class TestAuthUtils:
         # Empty string should fail
         assert validate_api_key("", expected) is False
 
+    def test_extract_proxy_auth_key_x_api_key(self):
+        """Test extracting proxy auth key from x-api-key header."""
+        headers = {"x-api-key": "proxy-auth-key"}
+        result = extract_proxy_auth_key(headers)
+        assert result == "proxy-auth-key"
+
+    def test_extract_proxy_auth_key_authorization_bearer(self):
+        """Test extracting proxy auth key from Authorization header."""
+        headers = {"authorization": "Bearer proxy-auth-key"}
+        result = extract_proxy_auth_key(headers)
+        assert result == "proxy-auth-key"
+
+    def test_extract_proxy_auth_key_precedence(self):
+        """Test that x-api-key takes precedence over Authorization for proxy auth."""
+        headers = {
+            "authorization": "Bearer bearer-key",
+            "x-api-key": "x-api-key-value"
+        }
+        result = extract_proxy_auth_key(headers)
+        assert result == "x-api-key-value"
+
+    def test_extract_proxy_auth_key_no_key(self):
+        """Test extracting proxy auth key when no key is present."""
+        headers = {}
+        result = extract_proxy_auth_key(headers)
+        assert result is None
+
 
 class TestValidateClientApiKey:
     """Test the validate_client_api_key function from main.py."""
     
     @pytest.mark.asyncio
     async def test_validate_client_api_key_no_auth_required(self):
-        """Test client validation when no auth key is configured."""
+        """Test client validation when no proxy auth key is configured."""
         with patch.object(main_module, 'settings') as mock_settings:
-            # Mock settings with no auth key
+            # Mock settings with no proxy auth key
             mock_settings.auth_key = None
             
             # Mock request with API key
             mock_request = Mock()
             mock_request.headers = {"authorization": "Bearer client-key-123"}
             
-            # Should return the client key  
+            # Should return the client's API key
             result = await validate_client_api_key(mock_request, None, "Bearer client-key-123")
             assert result == "client-key-123"
     
     @pytest.mark.asyncio
     async def test_validate_client_api_key_no_auth_no_client_key(self):
-        """Test client validation when no auth required and no client key provided."""
+        """Test client validation when no proxy auth required and no client key provided."""
         with patch.object(main_module, 'settings') as mock_settings:
-            # Mock settings with no auth key
+            # Mock settings with no proxy auth key
             mock_settings.auth_key = None
             
             # Mock request with no API key
             mock_request = Mock()
             mock_request.headers = {}
             
-            # Should return None (no validation required)
+            # Should return None (no client API key provided)
             result = await validate_client_api_key(mock_request, None, None)
             assert result is None
     
     @pytest.mark.asyncio
     async def test_validate_client_api_key_auth_required_valid_key(self):
-        """Test client validation with auth required and valid key."""
+        """Test client validation with proxy auth required and valid key."""
         with patch.object(main_module, 'settings') as mock_settings:
-            # Mock settings with auth key
+            # Mock settings with proxy auth key
             mock_settings.auth_key = "sk-proxy-auth-key"
             
-            # Mock request with correct key
+            # Mock request with correct proxy auth and client API key
             mock_request = Mock()
-            mock_request.headers = {"x-api-key": "sk-proxy-auth-key"}
+            mock_request.headers = {
+                "x-api-key": "sk-proxy-auth-key",  # Used for proxy auth
+                "authorization": "Bearer sk-client-api-key"  # Used for API calls
+            }
             
-            # Should return the client key
-            result = await validate_client_api_key(mock_request, "sk-proxy-auth-key", None)
-            assert result == "sk-proxy-auth-key"
+            # Should return the client's API key (x-api-key has priority for API key extraction)
+            result = await validate_client_api_key(mock_request, "sk-proxy-auth-key", "Bearer sk-client-api-key")
+            assert result == "sk-proxy-auth-key"  # x-api-key takes precedence
     
     @pytest.mark.asyncio
     async def test_validate_client_api_key_auth_required_invalid_key(self):
-        """Test client validation with auth required and invalid key."""
-        # Mock the settings directly on the main module
+        """Test client validation with proxy auth required and invalid key."""
         with patch.object(main_module, 'settings') as mock_settings:
             mock_settings.auth_key = "sk-proxy-auth-key"
             
-            # Mock request with wrong key
+            # Mock request with wrong proxy auth key
             mock_request = Mock()
-            mock_request.headers = {"authorization": "Bearer wrong-key"}
+            mock_request.headers = {"authorization": "Bearer wrong-proxy-key"}
             
-            # Should raise HTTPException (function gets key from headers, ignoring the parameters)
+            # Should raise HTTPException due to invalid proxy auth
             with pytest.raises(HTTPException) as exc_info:
                 await validate_client_api_key(mock_request, None, None)
             
@@ -138,16 +167,16 @@ class TestValidateClientApiKey:
     
     @pytest.mark.asyncio
     async def test_validate_client_api_key_auth_required_no_key(self):
-        """Test client validation with auth required and no key provided."""
+        """Test client validation with proxy auth required and no key provided."""
         with patch.object(main_module, 'settings') as mock_settings:
-            # Mock settings with auth key
+            # Mock settings with proxy auth key required
             mock_settings.auth_key = "sk-proxy-auth-key"
             
-            # Mock request with no key
+            # Mock request with no proxy auth key
             mock_request = Mock()
             mock_request.headers = {}
             
-            # Should raise HTTPException
+            # Should raise HTTPException due to missing proxy auth
             with pytest.raises(HTTPException) as exc_info:
                 await validate_client_api_key(mock_request, None, None)
             

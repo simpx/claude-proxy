@@ -20,6 +20,7 @@ from .models.claude import (
 from .providers.openai import OpenAIProvider
 from .utils import (
     extract_api_key_from_headers,
+    extract_proxy_auth_key,
     generate_request_id,
     get_current_timestamp,
     setup_logging,
@@ -91,19 +92,29 @@ async def validate_client_api_key(
     x_api_key: Optional[str] = Header(None, alias="x-api-key"),
     authorization: Optional[str] = Header(None)
 ) -> Optional[str]:
-    """Validate client's API key and return it."""
+    """
+    Validate proxy access permissions and return API key for provider.
+    
+    In Fixed API Key Mode: validates proxy auth and returns server's API key.
+    In Passthrough Mode: no proxy auth, returns client's API key.
+    """
     headers = dict(request.headers)
-    client_key = extract_api_key_from_headers(headers)
     
-    if not validate_api_key(client_key, settings.auth_key):
-        logger.warning("Invalid API key provided by client")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key. Please provide a valid Anthropic API key."
-        )
+    # Step 1: Proxy authentication (Fixed API Key Mode only)
+    if settings.auth_key:
+        proxy_auth_key = extract_proxy_auth_key(headers)
+        if not validate_api_key(proxy_auth_key, settings.auth_key):
+            logger.warning("Invalid proxy authentication key provided by client")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid API key. Please provide a valid proxy authentication key."
+            )
     
-    # Return the actual client key (which could be None in passthrough mode)
-    return client_key
+    # Step 2: Extract API key for provider
+    client_api_key = extract_api_key_from_headers(headers)
+    
+    # Return the key to use for provider calls
+    return client_api_key
 
 
 @app.post("/v1/messages", response_model=ClaudeMessagesResponse)

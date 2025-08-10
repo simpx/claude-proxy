@@ -7,15 +7,16 @@ This directory contains tests for claude-proxy, organized into unit and integrat
 ```
 tests/
 ├── conftest.py              # Shared test configuration
-├── .env.test               # Test environment configuration
 ├── unit/                   # Unit tests (fast, isolated)
 │   ├── test_auth.py        # Authentication unit tests
 │   ├── test_convert.py     # Conversion unit tests
 │   ├── test_models.py      # Model unit tests
 │   └── test_providers.py   # Provider unit tests
 └── integration/            # Integration tests (slower, end-to-end)
+    ├── conftest.py         # Shared integration test utilities
     └── openai/
-        └── test_basic_integration.py  # OpenAI integration tests
+        ├── test_basic_integration.py    # Basic API integration tests
+        └── test_auth_integration.py     # Authentication integration tests
 ```
 
 ## Running Tests
@@ -60,7 +61,9 @@ Integration tests require a valid OpenAI-compatible API key and use the same con
    export OPENAI_BASE_URL=https://api.openai.com/v1  # or your provider URL
    ```
 
-This approach allows you to reuse the same configuration for both testing and normal operation. Integration tests will be skipped if `OPENAI_API_KEY` is not set.
+This approach allows you to reuse the same configuration for both testing and normal operation. Integration tests will be skipped automatically if required environment variables are not available.
+
+**Important**: All API keys and sensitive configuration are read from environment variables - no secrets are hardcoded in test files.
 
 ## Test Types
 
@@ -73,9 +76,11 @@ This approach allows you to reuse the same configuration for both testing and no
 ### Integration Tests  
 - Slower execution (few seconds)
 - Test full API workflows end-to-end
-- Start actual proxy server
-- Use real Anthropic client against the proxy
+- Start actual proxy server with custom configurations
+- Use real HTTP clients and Anthropic client against the proxy
 - Verify complete request/response flow
+- Test different authentication modes (Fixed API Key, Passthrough)
+- Test various authentication scenarios (valid/invalid keys, missing auth, etc.)
 
 ## Development
 
@@ -85,3 +90,5 @@ When adding new tests:
 2. **Integration tests** for new API endpoints/workflows go in `tests/integration/`
 3. Mark integration tests with `@pytest.mark.integration`
 4. Use descriptive test names that explain the scenario being tested
+5. **Never hardcode API keys or secrets** - always use environment variables
+6. Use shared utilities from `tests/integration/conftest.py` for integration tests
