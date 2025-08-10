@@ -38,7 +38,7 @@ class Settings(BaseSettings):
         alias="CLAUDE_PROXY_AUTH_KEY"
     )
     
-    model_config = {"env_file": ".env", "case_sensitive": False}
+    model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
 
 def get_model_mapping() -> Dict[str, str]:
