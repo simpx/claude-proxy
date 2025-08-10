@@ -335,13 +335,13 @@ class OpenAIProvider(BaseProvider):
                                 continue
                                 
                             choice = chunk["choices"][0] if len(chunk["choices"]) > 0 else None
-                            if not choice:
-                                logging.debug("Choice is None or empty, skipping")
+                            if not choice or not isinstance(choice, dict):
+                                logging.debug("Choice is None, empty, or not a dict, skipping")
                                 continue
                                 
-                            delta = choice.get("delta", {})
+                            delta = choice.get("delta", {}) if choice else {}
                             
-                            if chunk.get("usage"):
+                            if chunk.get("usage") and isinstance(chunk["usage"], dict):
                                 input_tokens = chunk["usage"].get("prompt_tokens", input_tokens)
                             
                             if content := delta.get("content"):
@@ -355,8 +355,8 @@ class OpenAIProvider(BaseProvider):
                                 }
                                 yield f"event: content_block_delta\ndata: {json.dumps(delta_event)}\n\n"
                             
-                            if choice.get("finish_reason"):
-                                usage_info = chunk.get("usage", {})
+                            if choice and choice.get("finish_reason"):
+                                usage_info = chunk.get("usage", {}) if chunk.get("usage") and isinstance(chunk.get("usage"), dict) else {}
                                 output_tokens = usage_info.get("completion_tokens", 0)
                                 
                                 # Send content_block_stop event
