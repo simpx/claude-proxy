@@ -90,7 +90,7 @@ async def validate_client_api_key(
     request: Request,
     x_api_key: Optional[str] = Header(None, alias="x-api-key"),
     authorization: Optional[str] = Header(None)
-) -> str:
+) -> Optional[str]:
     """Validate client's API key and return it."""
     headers = dict(request.headers)
     client_key = extract_api_key_from_headers(headers)
@@ -102,14 +102,15 @@ async def validate_client_api_key(
             detail="Invalid API key. Please provide a valid Anthropic API key."
         )
     
-    return client_key or "dummy-key"
+    # Return the actual client key (which could be None in passthrough mode)
+    return client_key
 
 
 @app.post("/v1/messages", response_model=ClaudeMessagesResponse)
 async def create_message(
     request: ClaudeMessagesRequest,
     http_request: Request,
-    client_key: str = Depends(validate_client_api_key)  # API key validation
+    client_key: Optional[str] = Depends(validate_client_api_key)  # API key validation
 ):
     """Handle Claude API /v1/messages requests."""
     request_id = generate_request_id()
