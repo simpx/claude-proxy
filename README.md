@@ -263,3 +263,10 @@ curl http://localhost:8085/test-connection
 ## License
 
 MIT License - see LICENSE file for details.
+
+# Cost
+
+| Date       | Models                                        |       Input |    Output |  Cache Create |   Cache Read |  Total Tokens |  Cost (USD) |
+|------------|-----------------------------------------------|-------------|-----------|---------------|--------------|---------------|-------------|
+| 2025-08-10 | - claude-3-5-haiku-20241022<br>- opus-4<br>- sonnet-4 |     800,029 |   125,127 |     5,626,104 |  109,100,385 |   115,651,645 |      $93.07 |
+| 2025-08-11 | - sonnet-4                                    |         162 |     4,462 |       136,426 |    5,467,404 |     5,608,454 |       $2.22 |
