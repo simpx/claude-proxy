@@ -18,45 +18,22 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from conftest import IntegrationTestServer, get_test_env_vars
 
 
-@pytest.mark.integration
-class TestClaudeCodeIntegration:
-    """Test Claude Code CLI integration with claude-proxy."""
-
-    @pytest.fixture
-    def server_fixed_key_mode(self):
-        """Server in Fixed API Key Mode for Claude Code testing."""
-        env_vars = get_test_env_vars()
-        server = IntegrationTestServer(
-            OPENAI_API_KEY=env_vars['OPENAI_API_KEY'],
-            OPENAI_BASE_URL=env_vars['OPENAI_BASE_URL'],
-            CLAUDE_PROXY_BIG_MODEL=env_vars['CLAUDE_PROXY_BIG_MODEL'],
-            CLAUDE_PROXY_SMALL_MODEL=env_vars['CLAUDE_PROXY_SMALL_MODEL'],
-            CLAUDE_PROXY_AUTH_KEY=None  # No proxy auth for simplicity
-        )
-        server.start()
-        yield server
-        server.stop()
+class ClaudeCodeTestMixin:
+    """Mixin class with shared test methods."""
     
-    def _run_claude_command(self, prompt, server_port, **kwargs):
+    def _run_claude_command(self, prompt, server_port, auth_token=None, **kwargs):
         """
-        Run claude command with custom server configuration.
+        Run claude command with custom server configuration using environment variables.
         
         Args:
             prompt: The prompt to send to Claude
             server_port: Port of the claude-proxy server
+            auth_token: Optional authentication token for proxy
             **kwargs: Additional claude command arguments
         """
-        # Create temporary settings file to override API endpoint
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            settings = {
-                "apiBaseUrl": f"http://localhost:{server_port}/v1"
-            }
-            json.dump(settings, f)
-            settings_file = f.name
-        
         try:
-            # Build claude command
-            cmd = ['claude', '--print', '--settings', settings_file]
+            # Build claude command with minimal configuration to avoid tool issues
+            cmd = ['claude', '--print', '--dangerously-skip-permissions']
             
             # Add optional arguments
             if kwargs.get('output_format'):
@@ -74,13 +51,24 @@ class TestClaudeCodeIntegration:
             # Add prompt as final argument
             cmd.append(prompt)
             
+            # Set up environment variables
+            env = dict(os.environ)
+            env['ANTHROPIC_BASE_URL'] = f"http://localhost:{server_port}"
+            
+            if auth_token:
+                env['ANTHROPIC_AUTH_TOKEN'] = auth_token
+            
+            # Debug: Print the actual command being executed (remove in production)
+            # print(f"DEBUG: Executing command: {' '.join(cmd)}")
+            # print(f"DEBUG: Environment ANTHROPIC_BASE_URL: {env.get('ANTHROPIC_BASE_URL')}")
+            
             # Run command with timeout
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                env=dict(os.environ)  # Use current environment
+                env=env
             )
             
             return {
@@ -104,12 +92,26 @@ class TestClaudeCodeIntegration:
                 'returncode': 1,
                 'success': False
             }
-        finally:
-            # Clean up temporary settings file
-            try:
-                Path(settings_file).unlink()
-            except Exception:
-                pass
+
+
+@pytest.mark.integration
+class TestClaudeCodeIntegration(ClaudeCodeTestMixin):
+    """Test Claude Code CLI integration with claude-proxy."""
+
+    @pytest.fixture
+    def server_fixed_key_mode(self):
+        """Server in Fixed API Key Mode for Claude Code testing."""
+        env_vars = get_test_env_vars()
+        server = IntegrationTestServer(
+            OPENAI_API_KEY=env_vars['OPENAI_API_KEY'],
+            OPENAI_BASE_URL=env_vars['OPENAI_BASE_URL'],
+            CLAUDE_PROXY_BIG_MODEL=env_vars['CLAUDE_PROXY_BIG_MODEL'],
+            CLAUDE_PROXY_SMALL_MODEL=env_vars['CLAUDE_PROXY_SMALL_MODEL'],
+            CLAUDE_PROXY_AUTH_KEY=None  # No proxy auth for simplicity
+        )
+        server.start()
+        yield server
+        server.stop()
     
     def test_basic_text_response(self, server_fixed_key_mode):
         """Test basic text response through Claude Code."""
@@ -264,9 +266,8 @@ class TestClaudeCodeIntegration:
             assert result['success'], f"Request {suffix} failed: {result['stderr']}"
             assert f'Response {suffix}' in result['stdout']
 
-
 @pytest.mark.integration
-class TestClaudeCodeAuthentication:
+class TestClaudeCodeAuthentication(ClaudeCodeTestMixin):
     """Test Claude Code authentication scenarios."""
     
     @pytest.fixture
@@ -285,32 +286,12 @@ class TestClaudeCodeAuthentication:
         server.stop()
     
     def _run_claude_with_auth(self, prompt, server_port, auth_key=None):
-        """Run claude command with authentication settings."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            settings = {
-                "apiBaseUrl": f"http://localhost:{server_port}/v1"
-            }
-            if auth_key:
-                settings["apiKey"] = auth_key
-            json.dump(settings, f)
-            settings_file = f.name
-        
-        try:
-            cmd = ['claude', '--print', '--settings', settings_file, prompt]
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            
-            return {
-                'stdout': result.stdout,
-                'stderr': result.stderr,
-                'success': result.returncode == 0
-            }
-        finally:
-            Path(settings_file).unlink()
+        """Run claude command with authentication using environment variables."""
+        return self._run_claude_command(
+            prompt,
+            server_port,
+            auth_token=auth_key
+        )
     
     def test_auth_required_no_key(self, server_with_auth):
         """Test request without required auth key."""

@@ -123,6 +123,12 @@ Authentication tests use different server configurations:
 3. **Connection refused**: Check if ports are available
 4. **Authentication errors**: Verify API keys in environment
 
+### Known Issues
+
+**Tools Compatibility Issue**: Claude Code automatically includes tool definitions in requests, which may not be compatible with all target APIs. This can cause 400 Bad Request errors with messages like "Invalid type for 'tools.15', expected an json object."
+
+This is a legitimate compatibility issue that the tests are designed to discover. The proxy should handle or filter tool definitions to ensure compatibility with target APIs.
+
 ### Debug Mode
 Run tests with debug output:
 ```bash

@@ -97,9 +97,12 @@ class OpenAIProvider(BaseProvider):
             openai_request["top_p"] = request.top_p
         if request.stop_sequences:
             openai_request["stop"] = request.stop_sequences
-        if request.tools:
-            openai_request["tools"] = request.tools
-        if request.tool_choice:
+        
+        # Handle tools - filter out potentially incompatible tools for now
+        # TODO: Add proper tool format conversion when needed
+        if request.tools and self._should_include_tools(request.tools):
+            openai_request["tools"] = self._convert_tools(request.tools)
+        if request.tool_choice and request.tools:
             openai_request["tool_choice"] = request.tool_choice
             
         return openai_request
@@ -150,6 +153,62 @@ class OpenAIProvider(BaseProvider):
             stop_reason=self._convert_finish_reason(choice.get("finish_reason")),
             usage=usage
         )
+    
+    def _should_include_tools(self, tools: List[Dict[str, Any]]) -> bool:
+        """Determine if tools should be included in the request to avoid compatibility issues."""
+        if not tools:
+            return False
+        
+        # Debug: Log the actual tools format to understand the issue
+        logging.info(f"Claude Code sent {len(tools)} tools - attempting to convert to OpenAI format")
+        
+        # Always try to include tools, but convert them properly
+        return True
+    
+    def _convert_tools(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Convert Claude tools format to OpenAI tools format."""
+        openai_tools = []
+        
+        for tool in tools:
+            # Convert Claude tool format to OpenAI format
+            # Claude: {"name": "...", "description": "...", "input_schema": {...}}
+            # OpenAI: {"type": "function", "function": {"name": "...", "description": "...", "parameters": {...}}}
+            
+            if not isinstance(tool, dict):
+                logging.warning(f"Skipping non-dict tool: {tool}")
+                continue
+                
+            if "name" not in tool:
+                logging.warning(f"Skipping tool without name: {tool}")
+                continue
+            
+            openai_tool = {
+                "type": "function",
+                "function": {
+                    "name": tool["name"],
+                    "description": tool.get("description", ""),
+                }
+            }
+            
+            # Convert input_schema to parameters
+            if "input_schema" in tool and isinstance(tool["input_schema"], dict):
+                # Remove Claude-specific fields from schema
+                parameters = dict(tool["input_schema"])
+                # Remove $schema as it's not needed in OpenAI format
+                parameters.pop("$schema", None)
+                openai_tool["function"]["parameters"] = parameters
+            else:
+                # Provide empty parameters if no schema
+                openai_tool["function"]["parameters"] = {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            
+            openai_tools.append(openai_tool)
+        
+        logging.info(f"Converted {len(tools)} Claude tools to {len(openai_tools)} OpenAI tools")
+        return openai_tools
     
     def _convert_finish_reason(self, openai_reason: Optional[str]) -> Optional[str]:
         """Convert OpenAI finish reason to Claude format."""
