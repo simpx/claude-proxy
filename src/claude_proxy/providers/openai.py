@@ -136,7 +136,7 @@ class OpenAIProvider(BaseProvider):
         )
         
         # Determine model from original request or infer from response
-        model = original_request.model if original_request else self._infer_claude_model(response.get("model"))
+        model = original_request.model if original_request else self._guess_claude_model(response.get("model"))
         
         return ClaudeMessagesResponse(
             id=response["id"],
@@ -146,7 +146,7 @@ class OpenAIProvider(BaseProvider):
             usage=usage
         )
     
-    def _infer_claude_model(self, openai_model: Optional[str]) -> str:
+    def _guess_claude_model(self, openai_model: Optional[str]) -> str:
         """Infer Claude model from OpenAI model response."""
         if not openai_model:
             return "claude-3-haiku-20240307"  # Default fallback
