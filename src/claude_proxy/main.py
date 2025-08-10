@@ -216,7 +216,7 @@ async def test_connection():
         from .models.claude import ClaudeMessage, ClaudeMessagesRequest
         
         test_request = ClaudeMessagesRequest(
-            model="claude-3-haiku",
+            model="claude-3-5-haiku-20241022",
             max_tokens=5,
             messages=[ClaudeMessage(role="user", content="Hello")]
         )

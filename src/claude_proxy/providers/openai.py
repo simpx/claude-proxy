@@ -135,8 +135,13 @@ class OpenAIProvider(BaseProvider):
             output_tokens=usage_data.get("completion_tokens", 0)
         )
         
-        # Determine model from original request or infer from response
-        model = original_request.model if original_request else self._guess_claude_model(response.get("model"))
+        # Determine model from original request or guess from response
+        settings = get_settings()
+        model = original_request.model if original_request else BaseProvider.guess_claude_model(
+            response.get("model"), 
+            settings.big_model, 
+            settings.small_model
+        )
         
         return ClaudeMessagesResponse(
             id=response["id"],
@@ -145,21 +150,6 @@ class OpenAIProvider(BaseProvider):
             stop_reason=self._convert_finish_reason(choice.get("finish_reason")),
             usage=usage
         )
-    
-    def _guess_claude_model(self, openai_model: Optional[str]) -> str:
-        """Infer Claude model from OpenAI model response."""
-        if not openai_model:
-            return "claude-3-haiku-20240307"  # Default fallback
-        
-        # Reverse mapping from OpenAI models to Claude models
-        settings = get_settings()
-        if openai_model == settings.big_model:
-            return "claude-3-opus-20240229"  # Default big model
-        elif openai_model == settings.small_model:
-            return "claude-3-haiku-20240307"  # Default small model
-        else:
-            # For custom models, default to haiku
-            return "claude-3-haiku-20240307"
     
     def _convert_finish_reason(self, openai_reason: Optional[str]) -> Optional[str]:
         """Convert OpenAI finish reason to Claude format."""

@@ -32,11 +32,27 @@ def openai_provider():
 
 def test_model_mapping():
     """Test Claude model to OpenAI model mapping."""
-    assert map_claude_model("claude-3-haiku") == "gpt-4o-mini"
-    assert map_claude_model("claude-3-sonnet") == "gpt-4o"
-    assert map_claude_model("claude-3-opus") == "gpt-4o"
-    assert map_claude_model("claude-sonnet-4-20250514") == "gpt-4o"
-    assert map_claude_model("unknown-model") == "gpt-4o"  # Default to big model
+    from src.claude_proxy.config import get_settings
+    settings = get_settings()
+    
+    # Test Haiku models -> small_model
+    assert map_claude_model("claude-3-haiku") == settings.small_model
+    assert map_claude_model("claude-3-5-haiku-20241022") == settings.small_model
+    
+    # Test Sonnet models -> big_model
+    assert map_claude_model("claude-3-sonnet") == settings.big_model
+    assert map_claude_model("claude-3-5-sonnet-20241022") == settings.big_model
+    assert map_claude_model("claude-3-7-sonnet-20250219") == settings.big_model
+    
+    # Test Opus models -> big_model
+    assert map_claude_model("claude-3-opus") == settings.big_model
+    
+    # Test Claude 4 models -> big_model
+    assert map_claude_model("claude-sonnet-4-20250514") == settings.big_model
+    assert map_claude_model("claude-opus-4-1-20250805") == settings.big_model
+    
+    # Test unknown model defaults to big_model
+    assert map_claude_model("unknown-model") == settings.big_model
 
 
 def test_openai_request_conversion(openai_provider, claude_request):

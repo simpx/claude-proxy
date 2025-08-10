@@ -44,41 +44,16 @@ class Settings(BaseSettings):
 
 def get_model_mapping() -> Dict[str, str]:
     """Get Claude to target model mapping."""
+    from .providers.base import BaseProvider
     settings = get_settings()
-    return {
-        # Claude Haiku models -> Small model
-        "claude-3-haiku": settings.small_model,
-        "claude-3-haiku-20240307": settings.small_model,
-        
-        # Claude Sonnet/Opus models -> Big model  
-        "claude-3-sonnet": settings.big_model,
-        "claude-3-sonnet-20240229": settings.big_model,
-        "claude-3-5-sonnet": settings.big_model,
-        "claude-3-5-sonnet-20241022": settings.big_model,
-        "claude-3-opus": settings.big_model,
-        "claude-3-opus-20240229": settings.big_model,
-        
-        # Claude 4 models
-        "claude-sonnet-4-20250514": settings.big_model,
-    }
+    return BaseProvider.get_claude_model_mapping(settings.big_model, settings.small_model)
 
 
 def map_claude_model(claude_model: str) -> str:
     """Map Claude model name to target provider model."""
-    model_mapping = get_model_mapping()
-    
-    # Direct mapping
-    if claude_model in model_mapping:
-        return model_mapping[claude_model]
-    
-    # Fuzzy matching for model families
-    if "haiku" in claude_model.lower():
-        return get_settings().small_model
-    elif any(x in claude_model.lower() for x in ["sonnet", "opus"]):
-        return get_settings().big_model
-    
-    # Default to big model
-    return get_settings().big_model
+    from .providers.base import BaseProvider
+    settings = get_settings()
+    return BaseProvider.map_claude_model(claude_model, settings.big_model, settings.small_model)
 
 
 # Global settings instance
