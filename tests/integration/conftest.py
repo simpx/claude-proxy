@@ -3,11 +3,11 @@ Shared fixtures and utilities for integration tests.
 """
 
 import os
+import socket
 import threading
 import time
-from typing import Optional
-import socket
 
+import pytest
 import uvicorn
 
 
@@ -75,7 +75,7 @@ class IntegrationTestServer:
         # Wait for server to start
         time.sleep(2)  # Give more time for environment changes to take effect
         max_wait = 15
-        for i in range(max_wait * 10):
+        for _ in range(max_wait * 10):
             try:
                 import httpx
                 response = httpx.get(f"http://{self.host}:{self.actual_port}/health", timeout=2.0)
@@ -102,10 +102,62 @@ class IntegrationTestServer:
 
 
 def get_test_env_vars():
-    """Get test environment variables from current environment."""
+    """Get test environment variables from current environment and .env file."""
+    import os
+    from pathlib import Path
+    from dotenv import load_dotenv
+    
+    # Load .env file from project root if it exists
+    # This will load variables into os.environ if they're not already set
+    project_root = Path(__file__).parent.parent.parent
+    env_file = project_root / '.env'
+    
+    if env_file.exists():
+        load_dotenv(env_file, override=False)  # Don't override existing env vars
+    
     return {
         'OPENAI_API_KEY': os.environ.get('OPENAI_API_KEY'),
         'OPENAI_BASE_URL': os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
         'CLAUDE_PROXY_BIG_MODEL': os.environ.get('CLAUDE_PROXY_BIG_MODEL', 'gpt-4o'),
         'CLAUDE_PROXY_SMALL_MODEL': os.environ.get('CLAUDE_PROXY_SMALL_MODEL', 'gpt-4o-mini'),
     }
+
+
+def should_skip_integration_tests():
+    """Check if integration tests should be skipped due to missing required environment variables."""
+    env_vars = get_test_env_vars()
+    
+    # Check if required variables are available
+    openai_key = env_vars.get('OPENAI_API_KEY')
+    openai_url = env_vars.get('OPENAI_BASE_URL')
+    
+    # OPENAI_API_KEY is absolutely required
+    if not openai_key:
+        return True, "OPENAI_API_KEY not found in environment variables or .env file"
+    
+    # OPENAI_BASE_URL has a default, but let's ensure it's valid
+    if not openai_url or not openai_url.startswith(('http://', 'https://')):
+        return True, "OPENAI_BASE_URL not found or invalid in environment variables or .env file"
+    
+    return False, None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def check_integration_requirements():
+    """Automatically check if integration tests should be skipped.
+    
+    This fixture runs once per session and will skip all integration tests
+    if required environment variables are not available.
+    """
+    should_skip, reason = should_skip_integration_tests()
+    if should_skip:
+        pytest.skip(f"Skipping all integration tests: {reason}")
+    
+    # Log successful environment detection
+    env_vars = get_test_env_vars()
+    print(f"\n✅ Integration test environment detected:")
+    print(f"   OPENAI_API_KEY: {'✓ Set' if env_vars['OPENAI_API_KEY'] else '✗ Missing'}")
+    print(f"   OPENAI_BASE_URL: {env_vars['OPENAI_BASE_URL']}")
+    print(f"   BIG_MODEL: {env_vars['CLAUDE_PROXY_BIG_MODEL']}")
+    print(f"   SMALL_MODEL: {env_vars['CLAUDE_PROXY_SMALL_MODEL']}")
+    print()

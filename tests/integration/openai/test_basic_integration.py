@@ -3,7 +3,6 @@ Basic integration test for claude-proxy with OpenAI API.
 Tests the full flow: start proxy server -> make Claude API calls -> verify responses.
 """
 
-import os
 import pytest
 from anthropic import Anthropic
 from anthropic.types import Message
@@ -32,8 +31,6 @@ def anthropic_client(test_server):
     """Fixture to create Anthropic client pointing to our test server."""
     env_vars = get_test_env_vars()
     api_key = env_vars['OPENAI_API_KEY']
-    if not api_key:
-        pytest.skip("OPENAI_API_KEY not set - skipping integration test")
     
     return Anthropic(
         api_key=api_key,  # This will be forwarded through proxy

@@ -169,8 +169,6 @@ class TestPassthroughModeAuth:
     async def test_passthrough_mode_with_valid_client_key(self, server_passthrough_no_auth):
         """Test Passthrough Mode with valid client API key."""
         env_vars = get_test_env_vars()
-        if not env_vars['OPENAI_API_KEY']:
-            pytest.skip("OPENAI_API_KEY not set - skipping test requiring real API key")
             
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -232,8 +230,6 @@ class TestPassthroughModeAuth:
     async def test_passthrough_mode_x_api_key_forwarded(self, server_passthrough_no_auth):
         """Test that x-api-key is forwarded as API key in Passthrough Mode."""
         env_vars = get_test_env_vars()
-        if not env_vars['OPENAI_API_KEY']:
-            pytest.skip("OPENAI_API_KEY not set - skipping test requiring real API key")
             
         async with httpx.AsyncClient() as client:
             response = await client.post(
