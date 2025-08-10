@@ -50,11 +50,19 @@ class OpenAIProvider(BaseProvider):
         for msg in request.messages:
             openai_msg = {"role": msg.role}
             
+            # Check if this message contains tool_use content (assistant with tool calls)
+            has_tool_use = False
+            tool_calls = []
+            
+            # Check if this message contains tool_result content (user with tool results)  
+            has_tool_results = False
+            
             if isinstance(msg.content, str):
                 openai_msg["content"] = msg.content
             elif isinstance(msg.content, list):
-                # Handle multi-modal content
+                # Handle multi-modal content and tool calls
                 content_parts = []
+                
                 for part in msg.content:
                     if isinstance(part, dict):
                         if part.get("type") == "text":
@@ -72,6 +80,33 @@ class OpenAIProvider(BaseProvider):
                                         "url": f"data:{source.get('media_type', 'image/jpeg')};base64,{source.get('data', '')}"
                                     }
                                 })
+                        elif part.get("type") == "tool_use":
+                            # Convert Claude tool_use to OpenAI tool_calls
+                            has_tool_use = True
+                            tool_calls.append({
+                                "id": part.get("id", ""),
+                                "type": "function",
+                                "function": {
+                                    "name": part.get("name", ""),
+                                    "arguments": json.dumps(part.get("input", {}))
+                                }
+                            })
+                        elif part.get("type") == "tool_result":
+                            # Convert Claude tool_result to OpenAI format
+                            has_tool_results = True
+                            tool_result_content = part.get("content", "")
+                            if isinstance(tool_result_content, list):
+                                # Extract text from content list
+                                text_content = ""
+                                for item in tool_result_content:
+                                    if isinstance(item, dict) and item.get("type") == "text":
+                                        text_content += item.get("text", "")
+                                tool_result_content = text_content
+                            
+                            content_parts.append({
+                                "type": "text",
+                                "text": str(tool_result_content)
+                            })
                     elif hasattr(part, "type") and hasattr(part, "text"):
                         # Handle Pydantic models
                         if part.type == "text":
@@ -79,8 +114,97 @@ class OpenAIProvider(BaseProvider):
                                 "type": "text", 
                                 "text": part.text
                             })
+                        elif part.type == "tool_use":
+                            # Handle Pydantic tool_use models
+                            has_tool_use = True
+                            tool_calls.append({
+                                "id": part.id,
+                                "type": "function",
+                                "function": {
+                                    "name": part.name,
+                                    "arguments": json.dumps(part.input)
+                                }
+                            })
+                    elif hasattr(part, "type"):
+                        # Handle Pydantic models without text attribute
+                        if part.type == "tool_use":
+                            has_tool_use = True
+                            tool_calls.append({
+                                "id": part.id,
+                                "type": "function", 
+                                "function": {
+                                    "name": part.name,
+                                    "arguments": json.dumps(part.input)
+                                }
+                            })
+                        elif part.type == "tool_result":
+                            # Handle Pydantic tool_result models  
+                            has_tool_results = True
+                            result_content = part.content
+                            if isinstance(result_content, list):
+                                text_content = ""
+                                for item in result_content:
+                                    if isinstance(item, dict) and item.get("type") == "text":
+                                        text_content += item.get("text", "")
+                                result_content = text_content
+                            
+                            content_parts.append({
+                                "type": "text",
+                                "text": str(result_content)
+                            })
                 
-                openai_msg["content"] = content_parts if content_parts else ""
+                # Set message content and tool_calls
+                if has_tool_use:
+                    # Assistant message with tool calls
+                    openai_msg["tool_calls"] = tool_calls
+                    # For assistant messages with tool calls, content should be null or text-only
+                    text_parts = [part for part in content_parts if part.get("type") == "text"]
+                    if text_parts and text_parts[0].get("text"):
+                        openai_msg["content"] = text_parts[0]["text"]
+                    else:
+                        openai_msg["content"] = None
+                elif has_tool_results:
+                    # Handle tool_result messages - convert each to separate tool message
+                    for part in msg.content:
+                        if isinstance(part, dict) and part.get("type") == "tool_result":
+                            tool_result_content = part.get("content", "")
+                            if isinstance(tool_result_content, list):
+                                # Extract text from content list
+                                text_content = ""
+                                for item in tool_result_content:
+                                    if isinstance(item, dict) and item.get("type") == "text":
+                                        text_content += item.get("text", "")
+                                tool_result_content = text_content
+                            
+                            # Create separate tool message
+                            tool_msg = {
+                                "role": "tool",
+                                "content": str(tool_result_content),
+                                "tool_call_id": part.get("tool_use_id", "unknown")
+                            }
+                            messages.append(tool_msg)
+                        elif hasattr(part, "type") and part.type == "tool_result":
+                            # Handle Pydantic tool_result models
+                            result_content = part.content
+                            if isinstance(result_content, list):
+                                text_content = ""
+                                for item in result_content:
+                                    if isinstance(item, dict) and item.get("type") == "text":
+                                        text_content += item.get("text", "")
+                                result_content = text_content
+                            
+                            # Create separate tool message
+                            tool_msg = {
+                                "role": "tool", 
+                                "content": str(result_content),
+                                "tool_call_id": part.tool_use_id
+                            }
+                            messages.append(tool_msg)
+                    # Skip the original user message since we've converted tool_results to tool messages
+                    continue
+                else:
+                    # Regular content
+                    openai_msg["content"] = content_parts if content_parts else ""
             
             messages.append(openai_msg)
         
@@ -131,12 +255,11 @@ class OpenAIProvider(BaseProvider):
                 except json.JSONDecodeError:
                     arguments = {}
                     
-                content.append({
-                    "type": "tool_use",
-                    "id": tool_call["id"],
-                    "name": tool_call["function"]["name"],
-                    "input": arguments
-                })
+                content.append(ClaudeToolUseContent(
+                    id=tool_call["id"],
+                    name=tool_call["function"]["name"],
+                    input=arguments
+                ))
         
         # Convert usage
         usage_data = response.get("usage", {})
@@ -263,9 +386,11 @@ class OpenAIProvider(BaseProvider):
         request_id: str
     ) -> ClaudeMessagesResponse:
         """Complete a non-streaming request."""
-        logging.debug(f"Starting 'complete' method with request_id={request_id}")
+        logging.info(f"=== NON-STREAMING REQUEST START [{request_id}] ===")
+        logging.info(f"Original Claude request: {request.model_dump()}")
         openai_request = self.convert_request(request)
-        logging.debug(f"Converted request: {openai_request}")
+        logging.info(f"Converted OpenAI request: {openai_request}")
+        logging.info(f"=== NON-STREAMING REQUEST END [{request_id}] ===")
         
         # Log the exact URL and headers being used
         url = f"{self.base_url}/chat/completions"
@@ -287,7 +412,12 @@ class OpenAIProvider(BaseProvider):
             response.raise_for_status()
             response_data = response.json()
             logging.debug(f"Response data: {response_data}")
-            return self.convert_response(response_data, request)
+            claude_response = self.convert_response(response_data, request)
+            logging.info(f"=== NON-STREAMING RESPONSE START [{request_id}] ===")
+            logging.info(f"OpenAI response data: {response_data}")
+            logging.info(f"Final Claude response: {claude_response.model_dump()}")
+            logging.info(f"=== NON-STREAMING RESPONSE END [{request_id}] ===")
+            return claude_response
             
         except httpx.HTTPStatusError as e:
             logging.error(f"HTTPStatusError occurred: {e.response.status_code}, {str(e)}")
@@ -300,6 +430,7 @@ class OpenAIProvider(BaseProvider):
             logging.error(f"General exception occurred: {str(e)}")
             error_msg = self.classify_error(str(e))
             raise Exception(error_msg) from e
+            
     
     async def stream_complete(
         self, 
@@ -307,9 +438,11 @@ class OpenAIProvider(BaseProvider):
         request_id: str
     ) -> AsyncGenerator[str, None]:
         """Stream a completion request."""
-        logging.debug(f"Starting 'stream_complete' method with request_id={request_id}")
+        logging.info(f"=== STREAMING REQUEST START [{request_id}] ===")
+        logging.info(f"Original Claude request: {request.model_dump()}")
         openai_request = self.convert_request(request)
-        logging.debug(f"Converted request for streaming: {openai_request}")
+        logging.info(f"Converted OpenAI request: {openai_request}")
+        logging.info(f"=== STREAMING REQUEST END [{request_id}] ===")
         openai_request["stream"] = True
         
         try:
@@ -342,7 +475,9 @@ class OpenAIProvider(BaseProvider):
                         "usage": {"input_tokens": input_tokens, "output_tokens": 0}
                     }
                 }
-                yield f"event: message_start\ndata: {json.dumps(start_event)}\n\n"
+                start_event_str = f"event: message_start\ndata: {json.dumps(start_event)}\n\n"
+                logging.info(f"[{request_id}] STREAMING RESPONSE: {start_event_str.strip()}")
+                yield start_event_str
                 async for line in response.aiter_lines():
                     logging.debug(f"Streaming line received: {line}")
                     if line.startswith("data: "):
@@ -394,7 +529,9 @@ class OpenAIProvider(BaseProvider):
                                         "text": content
                                     }
                                 }
-                                yield f"event: content_block_delta\ndata: {json.dumps(delta_event)}\n\n"
+                                delta_event_str = f"event: content_block_delta\ndata: {json.dumps(delta_event)}\n\n"
+                                logging.info(f"[{request_id}] STREAMING RESPONSE: {delta_event_str.strip()}")
+                                yield delta_event_str
                             
                             # Handle tool calls in streaming
                             if tool_calls := delta.get("tool_calls"):
@@ -440,7 +577,9 @@ class OpenAIProvider(BaseProvider):
                                                 "input": {}
                                             }
                                         }
-                                        yield f"event: content_block_start\ndata: {json.dumps(tool_start_event)}\n\n"
+                                        tool_start_event_str = f"event: content_block_start\ndata: {json.dumps(tool_start_event)}\n\n"
+                                        logging.info(f"[{request_id}] STREAMING RESPONSE: {tool_start_event_str.strip()}")
+                                        yield tool_start_event_str
                                         acc["started"] = True
                                         has_tool_content = True
                                         
@@ -491,7 +630,10 @@ class OpenAIProvider(BaseProvider):
                                 yield f"event: message_delta\ndata: {json.dumps(stop_event)}\n\n"
                                 
                                 stop_event = {"type": "message_stop"}
-                                yield f"event: message_stop\ndata: {json.dumps(stop_event)}\n\n"
+                                stop_event_str = f"event: message_stop\ndata: {json.dumps(stop_event)}\n\n"
+                                logging.info(f"[{request_id}] STREAMING RESPONSE: {stop_event_str.strip()}")
+                                logging.info(f"=== STREAMING COMPLETE [{request_id}] ===")
+                                yield stop_event_str
                                 break
                         except json.JSONDecodeError as e:
                             logging.error(f"JSONDecodeError occurred: {str(e)}")
